@@ -1,0 +1,22 @@
+{
+    "name": "ocsArduinoLib",
+    "version": "1.0.0",
+    "description": "Open Community Safety Library",
+    "keywords": "arduino, ESP32, arduino, ESP8266",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/edwinspire/ocs_arduino_library.git"
+    },
+    "authors": [
+        {
+            "name": "edwinspire",
+            "email": "edwinspire@gmail.com",
+            "url": "https://github.com/edwinspire/"
+        }
+    ],
+    "license": "LGPL-2.1",
+    "homepage": "https://github.com/edwinspire/ocs_arduino_library",
+    "dependencies": {},
+    "frameworks": "*",
+    "platforms": "*"
+}
