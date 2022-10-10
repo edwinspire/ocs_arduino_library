@@ -36,10 +36,7 @@ namespace ocs
         class Input
         {
 
-            //          using setAlarmCallback = void (*)(ocs::AlarmType at);
-
         private:
-            //            setAlarmCallback setAlarm;
             int value;
             int gpio;
             ulong last_time;
@@ -63,13 +60,11 @@ namespace ocs
             int getvalue()
             {
                 this->value = analogRead(this->gpio); // read the input pin
-                // Serial.println(this->value);
                 return this->value;
             }
             void setup(int gpio_input)
             {
                 this->gpio = gpio_input;
-                //               this->setAlarm = sac;
                 pinMode(this->gpio, INPUT);
             }
 
@@ -91,18 +86,17 @@ namespace ocs
                     if (this->value <= lower_threshold)
                     {
                         this->status = Status::ALARM;
-                        //           Serial.println("ALARMA");
-                        // setAlarm(AlarmType::EMERGENCY);
+                        // Serial.println("ALARMA");
                     }
                     else if (this->value >= upper_threshold)
                     {
                         this->status = Status::TROUBLE;
-                        //             Serial.println("PROBLEMA");
+                         // Serial.println("PROBLEMA");
                     }
                     else
                     {
                         this->status = Status::NORMAL;
-                        //               Serial.println("NORMAL");
+                       // Serial.println("NORMAL");
                     }
 
                     if (last_status != status)
@@ -132,9 +126,6 @@ namespace ocs
 
             Serial.println("Entra en setAlarm");
             this->out01.low();
-            sleep(1000);
-            this->out01.high();
-            //       digitalWrite(21, HIGH);
 
             switch (at)
             {
@@ -164,6 +155,8 @@ namespace ocs
             {
                 this->connectWS();
             }
+
+            this->out01.loop();
 
             if (this->input01.changed())
             {

@@ -45,12 +45,6 @@ namespace edwinspire
             this->_blinkState = BlinkState::DISABLE;
             this->_outputState = LOW;
             digitalWrite(this->_outputPin, this->_outputState);
-            digitalWrite(this->_outputPin, 1);
-            Serial.println("Set LOW Output pin ");
-            Serial.println("vvvvv");
-            Serial.println(this->_outputPin);
-            Serial.println("LOW");
-            Serial.println(LOW);
         }
 
         void blink(unsigned long lowTime, unsigned long highTime, unsigned long delayTime, long blinkTimes)
