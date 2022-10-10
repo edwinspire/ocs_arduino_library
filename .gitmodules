@@ -1,0 +1,3 @@
+[submodule "lib/arduinoOutputpin"]
+	path = lib/arduinoOutputpin
+	url = https://github.com/edwinspire/arduinoOutputpin.git
