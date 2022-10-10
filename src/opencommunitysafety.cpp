@@ -7,6 +7,8 @@ using namespace websockets;
 
 namespace ocs
 {
+    
+
 
     enum StatusAlarm
     {
