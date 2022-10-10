@@ -1,7 +1,7 @@
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
 #include <Preferences.h>
-#include "../lib/arduinoOutputpin/src/Outputpin.cpp"
+#include "./lib/arduinoOutputpin/src/Outputpin.cpp"
 
 using namespace websockets;
 
