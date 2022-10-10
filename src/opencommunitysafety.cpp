@@ -1,14 +1,12 @@
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
 #include <Preferences.h>
-#include "./lib/arduinoOutputpin/src/Outputpin.cpp"
+#include "Outputpin.cpp"
 
 using namespace websockets;
 
 namespace ocs
 {
-    
-
 
     enum StatusAlarm
     {
