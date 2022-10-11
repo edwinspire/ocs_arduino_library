@@ -8,6 +8,12 @@ using namespace websockets;
 namespace ocs
 {
 
+    struct WifiParams
+    {
+        String ssid;
+        String pwd;
+    };
+
     enum StatusAlarm
     {
         ALARM,
@@ -91,12 +97,12 @@ namespace ocs
                     else if (this->value >= upper_threshold)
                     {
                         this->status = Status::TROUBLE;
-                         // Serial.println("PROBLEMA");
+                        // Serial.println("PROBLEMA");
                     }
                     else
                     {
                         this->status = Status::NORMAL;
-                       // Serial.println("NORMAL");
+                        // Serial.println("NORMAL");
                     }
 
                     if (last_status != status)
@@ -116,10 +122,79 @@ namespace ocs
     {
 
     public:
-        Preferences pref;
         String websocketHost;
         String deviceId;
         input::Input input01;
+        WifiParams listSSID[3];
+
+        bool deleteSSID(String ssid)
+        {
+            bool r = false;
+            int size = sizeof(this->listSSID) / sizeof(this->listSSID[0]);
+            for (byte i = 0; i < size; i = i + 1)
+            {
+
+                if (this->listSSID[i].ssid == ssid)
+                {
+                    WifiParams wp;
+                    wp.ssid = "";
+                    wp.pwd = "";
+
+                    listSSID[i] = wp;
+                    this->removePreference(ssid);
+                    r = true;
+                    break;
+                }
+            }
+            return r;
+        }
+
+        bool setSSID(String ssid, String pwd)
+        {
+            bool r = false;
+
+            int size = sizeof(this->listSSID) / sizeof(this->listSSID[0]);
+
+            // Busca el ssid para actualizarlo
+            for (byte i = 0; i < size; i = i + 1)
+            {
+
+                if (this->listSSID[i].ssid == ssid)
+                {
+                    WifiParams wp;
+                    wp.ssid = ssid;
+                    wp.pwd = pwd;
+
+                    listSSID[i] = wp;
+                    r = true;
+                    this->setPreference(ssid, pwd);
+                    break;
+                }
+            }
+
+            // si no ha sido encontrado entonces lo inserta en un espacio libre
+            if (!r)
+            {
+                Serial.println("ssid no encontrada, se intenta ingresarlo");
+                for (byte i = 0; i < size; i = i + 1)
+                {
+
+                    if (this->listSSID[i].ssid.length() < 5)
+                    {
+                        WifiParams wp;
+                        wp.ssid = ssid;
+                        wp.pwd = pwd;
+
+                        listSSID[i] = wp;
+                        r = true;
+                        this->setPreference(ssid, pwd);
+                        break;
+                    }
+                }
+            }
+
+            return r;
+        }
 
         void setAlarm(ocs::AlarmType at)
         {
@@ -182,8 +257,54 @@ namespace ocs
             this->wsclient.send(outputJson);
         }
 
+        void setup(int gpio_in_01, int gpio_out_01, const char *ssl_ca_cert)
+        {
+            this->websocketHost = this->getPreference("websocketHost", "wss://open-community-safety.herokuapp.com/ws/device");
+            this->deviceId = this->getPreference("deviceid", "00a0aa00-aa00-0000-0000-000000000000");
+            this->setup(this->websocketHost, this->deviceId, gpio_in_01, gpio_out_01, ssl_ca_cert);
+        }
+
+        String getWebSocketHost()
+        {
+            return this->getPreference("websocketHost", "wss://open-community-safety.herokuapp.com/ws/device");
+        }
+
+        void setWebSocketHost(String websocketHost)
+        {
+            this->setPreference("websocketHost", websocketHost);
+        }
+
+        String getdeviceId()
+        {
+            return this->getPreference("deviceid", "00a0aa00-aa00-0000-0000-000000000000");
+        }
+
+        void setdeviceId(String deviceId)
+        {
+            this->setPreference("deviceid", deviceId);
+        }
+
         void setup(String websocketHost, String deviceId, int gpio_in_01, int gpio_out_01, const char *ssl_ca_cert)
         {
+
+            if (websocketHost.length() < 1)
+            {
+                websocketHost = this->getWebSocketHost();
+            }
+            else
+            {
+                this->setWebSocketHost(websocketHost);
+            }
+
+            if (deviceId.length() < 1)
+            {
+                deviceId = this->getdeviceId();
+            }
+            else
+            {
+                this->setdeviceId(deviceId);
+            }
+
             this->websocketHost = websocketHost;
             this->deviceId = deviceId;
             this->wsclient.setCACert(ssl_ca_cert);
@@ -278,6 +399,30 @@ namespace ocs
     private:
         WebsocketsClient wsclient;
         edwinspire::OutputPin out01;
+        Preferences pref;
+
+        String getPreference(String key, String default_value)
+        {
+            pref.begin(key.c_str(), true);
+            String value = pref.getString(key.c_str(), default_value.c_str());
+            pref.end();
+            return value;
+        }
+
+        bool removePreference(String key)
+        {
+            pref.begin(key.c_str(), false);
+            bool r = pref.remove(key.c_str());
+            pref.end();
+            return r;
+        }
+
+        void setPreference(String key, String value)
+        {
+            pref.begin(key.c_str(), false);
+            pref.putString(key.c_str(), value);
+            pref.end();
+        }
     };
 
 }
