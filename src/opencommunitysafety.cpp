@@ -77,7 +77,7 @@ namespace ocs
             bool changed()
             {
                 bool Change = false;
-                // numzone > 1000 only soft button
+
                 if (millis() - last_time > interval)
                 {
 
@@ -225,6 +225,11 @@ namespace ocs
             if (this->wsclient.available())
             {
                 this->wsclient.poll();
+                if (millis() - this->last_time_ws_ping > this->intervalWsPing)
+                {
+                    this->wsclient.ping();
+                    this->last_time_ws_ping = millis();
+                }
             }
             else
             {
@@ -356,7 +361,7 @@ namespace ocs
                                          } });
 
             // run callback when events are occuring
-            this->wsclient.onEvent([](WebsocketsEvent event, String data) -> void
+            this->wsclient.onEvent([&](WebsocketsEvent event, String data) -> void
                                    {
     if (event == WebsocketsEvent::ConnectionOpened)
     {
@@ -365,6 +370,7 @@ namespace ocs
     else if (event == WebsocketsEvent::ConnectionClosed)
     {
         Serial.println("Connnection Closed");
+        Serial.print(this->wsclient.getCloseReason());
     }
     else if (event == WebsocketsEvent::GotPing)
     {
@@ -381,7 +387,8 @@ namespace ocs
 
             String urlws = this->websocketHost + "?device=" + this->deviceId;
             Serial.println("try connect ws: " + urlws);
-
+            //  Serial.printf("WebSocket available %d\n", this->wsclient.available());
+            delay(500);
             bool connected = this->wsclient.connect(urlws);
             if (connected)
             {
@@ -400,6 +407,8 @@ namespace ocs
         WebsocketsClient wsclient;
         edwinspire::OutputPin out01;
         Preferences pref;
+        unsigned long intervalWsPing = 50000;
+        unsigned long last_time_ws_ping = 0;
 
         String getPreference(String key, String default_value)
         {
@@ -424,5 +433,4 @@ namespace ocs
             pref.end();
         }
     };
-
 }
