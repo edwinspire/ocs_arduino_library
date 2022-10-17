@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <Preferences.h>
+
 
 namespace edwinspire
 {

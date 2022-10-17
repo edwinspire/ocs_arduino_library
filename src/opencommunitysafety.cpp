@@ -28,6 +28,48 @@ namespace ocs
         TEST
     };
 
+    class LocalStore
+    {
+
+    private:
+        Preferences pref;
+
+    public:
+        String getPreference(String key, String default_value)
+        {
+            // Serial.println("getPreference: " + key);
+            pref.begin(key.c_str(), true);
+            String value = pref.getString(key.c_str(), default_value.c_str());
+            pref.end();
+            return value;
+        }
+
+        bool removePreference(String key)
+        {
+            pref.begin(key.c_str(), false);
+            bool r = pref.remove(key.c_str());
+            pref.end();
+            return r;
+        }
+
+        bool setPreference(String key, String value)
+        {
+             Serial.println("setPreference: " + key + " = " + value);
+            //  Serial.println("setPreference: " + key);
+            bool r = false;
+            if (key.length() > 0)
+            {
+                pref.begin(key.c_str(), false);
+                if (pref.putString(key.c_str(), value) > 0)
+                {
+                    r = true;
+                }
+                pref.end();
+            }
+            return r;
+        }
+    };
+
     namespace input
     {
 
@@ -39,7 +81,7 @@ namespace ocs
             UNDEFINED
         };
 
-        class Input
+        class Input : private LocalStore
         {
 
         private:
@@ -49,9 +91,9 @@ namespace ocs
             ulong interval = 500;
             float zone_threshold = 40;
             Status last_status = Status::UNDEFINED;
+            String name = "Physical Button";
 
         public:
-            String name = "Physical Button";
             Status status = Status::UNDEFINED;
 
             DynamicJsonDocument toJson()
@@ -59,7 +101,7 @@ namespace ocs
                 DynamicJsonDocument doc(256);
                 doc["gpio"] = this->gpio;
                 doc["status"] = this->status;
-                doc["name"] = this->name;
+                doc["name"] = this->getName();
 
                 return doc;
             }
@@ -72,6 +114,19 @@ namespace ocs
             {
                 this->gpio = gpio_input;
                 pinMode(this->gpio, INPUT);
+            }
+
+            bool setName(String name)
+            {
+                this->name = name;
+                return this->setPreference("input_" + String(this->gpio), name);
+            }
+
+            String getName()
+            {
+                String n = "input_" + String(this->gpio);
+                this->name = this->getPreference(n, "Local GPIO " + String(this->gpio));
+                return this->name;
             }
 
             bool changed()
@@ -115,84 +170,56 @@ namespace ocs
                 return Change;
             }
         };
-
     };
 
-    class OpenCommunitySafety
+    const uint MAX_SSID = 3;
+
+    class OpenCommunitySafety : private LocalStore
     {
 
     public:
         String websocketHost;
         String deviceId;
         input::Input input01;
-        WifiParams listSSID[3];
 
-        bool deleteSSID(String ssid)
+        bool deleteSSID(uint position)
         {
-            bool r = false;
-            int size = sizeof(this->listSSID) / sizeof(this->listSSID[0]);
-            for (byte i = 0; i < size; i = i + 1)
-            {
-
-                if (this->listSSID[i].ssid == ssid)
-                {
-                    WifiParams wp;
-                    wp.ssid = "";
-                    wp.pwd = "";
-
-                    listSSID[i] = wp;
-                    this->removePreference(ssid);
-                    r = true;
-                    break;
-                }
-            }
-            return r;
+            return this->removePreference("ssid_" + String(position));
         }
 
-        bool setSSID(String ssid, String pwd)
+        uint getMaxSSIDs()
+        {
+            return MAX_SSID;
+        }
+
+        WifiParams *getSSIDs()
+        {
+            WifiParams *listSSID = new WifiParams[MAX_SSID];
+            for (byte i = 0; i < MAX_SSID; i = i + 1)
+            {
+                listSSID[i] = this->getSSID(i);
+            }
+            return listSSID;
+        }
+
+        WifiParams getSSID(uint position)
+        {
+            String ssid_str = this->getPreference("ssid_" + String(position), "");
+          //  Serial.println("ssid_str: " + ssid_str);
+            return this->deserializeSSID(ssid_str);
+        }
+
+        bool setSSID(uint position, String ssid, String pwd)
         {
             bool r = false;
-
-            int size = sizeof(this->listSSID) / sizeof(this->listSSID[0]);
-
-            // Busca el ssid para actualizarlo
-            for (byte i = 0; i < size; i = i + 1)
+            if (position <= MAX_SSID)
             {
-
-                if (this->listSSID[i].ssid == ssid)
-                {
-                    WifiParams wp;
-                    wp.ssid = ssid;
-                    wp.pwd = pwd;
-
-                    listSSID[i] = wp;
-                    r = true;
-                    this->setPreference(ssid, pwd);
-                    break;
-                }
+                r = this->setPreference("ssid_" + String(position), this->serializeSSID(ssid, pwd));
             }
-
-            // si no ha sido encontrado entonces lo inserta en un espacio libre
-            if (!r)
+            else
             {
-                Serial.println("ssid no encontrada, se intenta ingresarlo");
-                for (byte i = 0; i < size; i = i + 1)
-                {
-
-                    if (this->listSSID[i].ssid.length() < 5)
-                    {
-                        WifiParams wp;
-                        wp.ssid = ssid;
-                        wp.pwd = pwd;
-
-                        listSSID[i] = wp;
-                        r = true;
-                        this->setPreference(ssid, pwd);
-                        break;
-                    }
-                }
+                Serial.println("Invalid ssid position " + String(position));
             }
-
             return r;
         }
 
@@ -254,6 +281,54 @@ namespace ocs
             }
         }
 
+        bool setFromJson(DynamicJsonDocument json)
+        {
+            bool r = false;
+            Serial.println("setFromJson");
+            JsonArray array = json["ssid"].as<JsonArray>();
+            uint i = 0;
+            for (JsonVariant v : array)
+            {
+                this->setSSID(i, v["ssid"].as<String>(), v["pwd"].as<String>());
+                i++;
+            }
+
+            this->setdeviceId(json["deviceId"].as<String>());
+            this->setLatitude(json["latitude"].as<String>());
+            this->setLongitude(json["longitude"].as<String>());
+            this->setWebSocketHost(json["websocketHost"].as<String>());
+            this->input01.setName(json["input01"]["name"].as<String>());
+
+            // Serial.println(json["ssid"].as<String>());
+
+            return r;
+        }
+
+        DynamicJsonDocument toJson()
+        {
+            DynamicJsonDocument doc(2048);
+            doc["input01"] = this->input01.toJson();
+            doc["deviceId"] = this->deviceId;
+            doc["websocketHost"] = this->getWebSocketHost();
+            doc["latitude"] = this->getLatitude();
+            doc["longitude"] = this->getLongitude();
+            doc["MAX_SSID"] = MAX_SSID;
+
+            // const int size = sizeof(this->listSSID) / sizeof(this->listSSID[0]);
+
+            // Busca el ssid para actualizarlo
+            for (byte i = 0; i < MAX_SSID; i = i + 1)
+            {
+                WifiParams wp = this->getSSID(i);
+                doc["ssid"][i]["ssid"] = wp.ssid;
+                doc["ssid"][i]["pwd"] = wp.pwd;
+            }
+
+            doc["CACert"] = this->CACert;
+
+            return doc;
+        }
+
         void wssend(DynamicJsonDocument json_doc)
         {
             String outputJson = "";
@@ -310,11 +385,13 @@ namespace ocs
                 this->setdeviceId(deviceId);
             }
 
+            this->CACert = ssl_ca_cert;
             this->websocketHost = websocketHost;
             this->deviceId = deviceId;
             this->wsclient.setCACert(ssl_ca_cert);
             this->input01.setup(gpio_in_01);
             this->out01.setup(gpio_out_01);
+            //            this->listSSID = this->getSSIDs();
 
             //   run callback when messages are received
             this->wsclient.onMessage([&](WebsocketsMessage message) -> void
@@ -350,11 +427,13 @@ namespace ocs
                                              case 1000:
                                                  Serial.println("Reasignar UUID");
                                                  String dev_Id = doc["deviceid"];
-                                                 deviceId = dev_Id;
-
+                                                 //deviceId = dev_Id;
+                                                 this->setdeviceId(dev_Id);
+/*
                                                   pref.begin("deviceid", false);
                                                   pref.putString("deviceid", dev_Id);
                                                   pref.end();
+                                                  */
 
                                                  break;
                                              }
@@ -404,33 +483,62 @@ namespace ocs
         }
 
     private:
+        // WifiParams listSSID[MAX_SSID];
         WebsocketsClient wsclient;
         edwinspire::OutputPin out01;
-        Preferences pref;
+        //       Preferences pref;
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
+        const char *CACert;
+        String latitude;
+        String longitude;
+        //        const uint MAX_SSID = 3;
 
-        String getPreference(String key, String default_value)
+        String serializeSSID(String ssid, String pwd)
         {
-            pref.begin(key.c_str(), true);
-            String value = pref.getString(key.c_str(), default_value.c_str());
-            pref.end();
-            return value;
-        }
-
-        bool removePreference(String key)
-        {
-            pref.begin(key.c_str(), false);
-            bool r = pref.remove(key.c_str());
-            pref.end();
+            String r = "";
+            DynamicJsonDocument doc(256);
+            doc["ssid"] = ssid;
+            doc["pwd"] = pwd;
+            serializeJson(doc, r);
             return r;
         }
 
-        void setPreference(String key, String value)
+        WifiParams deserializeSSID(String json_ssid)
         {
-            pref.begin(key.c_str(), false);
-            pref.putString(key.c_str(), value);
-            pref.end();
+            // Serial.println("deserializeSSID: " + json_ssid);
+            DynamicJsonDocument doc(128);
+            deserializeJson(doc, json_ssid);
+            return createWifiParams(doc["ssid"].as<String>(), doc["pwd"].as<String>());
+        }
+
+        WifiParams createWifiParams(String ssid, String pwd)
+        {
+            // Serial.println("createWifiParams: " + ssid);
+            WifiParams wp;
+            wp.ssid = ssid;
+            wp.pwd = pwd;
+            return wp;
+        }
+
+        String getLatitude()
+        {
+            return this->getPreference("latitude", "0");
+        }
+
+        void setLatitude(String latitude)
+        {
+            this->setPreference("latitude", latitude);
+        }
+
+        String getLongitude()
+        {
+            return this->getPreference("longitude", "0");
+        }
+
+        void setLongitude(String longitude)
+        {
+            this->setPreference("longitude", longitude);
         }
     };
 }
