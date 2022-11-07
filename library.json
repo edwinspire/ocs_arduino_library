@@ -51,6 +51,7 @@
             ]
         },
         {
+            "owner": "esphome",
             "name": "ESPAsyncWebServer",
             "platforms": [
                 "espressif8266",
