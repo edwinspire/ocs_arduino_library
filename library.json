@@ -57,6 +57,14 @@
                 "espressif8266",
                 "espressif32"
             ]
+        },
+        {
+            "owner": "gilmaimon",
+            "name": "ArduinoWebsockets",
+            "platforms": [
+                "espressif8266",
+                "espressif32"
+            ]
         }
     ]
 }
