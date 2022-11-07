@@ -1,6 +1,4 @@
 #include <Arduino.h>
-#include <Preferences.h>
-
 
 namespace edwinspire
 {
@@ -16,10 +14,19 @@ namespace edwinspire
     {
 
     public:
-        void setup(int pin)
+        OutputPin()
+        {
+            // Without inicialized
+            this->_outputPin = 255;
+        }
+        byte getGPIO()
+        {
+            return this->_outputPin;
+        }
+        void setup(byte gpio)
         {
             Serial.println("Setup Output pin ");
-            this->_outputPin = pin;
+            this->_outputPin = gpio;
             this->_outputState = LOW;
             this->_blinkState = BlinkState::DISABLE;
 
@@ -35,18 +42,24 @@ namespace edwinspire
 
         void high(void)
         {
-            this->_blinkState = BlinkState::DISABLE;
-            this->_outputState = HIGH;
-            Serial.println("HIGH");
-            Serial.println(HIGH);
-            digitalWrite(this->_outputPin, this->_outputState);
+            if (this->getGPIO() != 255)
+            {
+                this->_blinkState = BlinkState::DISABLE;
+                this->_outputState = HIGH;
+                Serial.println("HIGH");
+                Serial.println(HIGH);
+                digitalWrite(this->_outputPin, this->_outputState);
+            }
         }
 
         void low(void)
         {
-            this->_blinkState = BlinkState::DISABLE;
-            this->_outputState = LOW;
-            digitalWrite(this->_outputPin, this->_outputState);
+            if (this->getGPIO() != 255)
+            {
+                this->_blinkState = BlinkState::DISABLE;
+                this->_outputState = LOW;
+                digitalWrite(this->_outputPin, this->_outputState);
+            }
         }
 
         void blink(unsigned long lowTime, unsigned long highTime, unsigned long delayTime, long blinkTimes)
@@ -81,50 +94,55 @@ namespace edwinspire
 
         void loop(void)
         {
-            bool isBlink = false;
-
-            if (this->_blinkTimes == 0)
-                this->_blinkState = BlinkState::DISABLE;
-
-            switch (this->_blinkState)
+            if (this->getGPIO() != 255)
             {
-            case BlinkState::DISABLE:
-                return;
+                bool isBlink = false;
 
-            case BlinkState::DELAY:
-                if ((unsigned long)(millis() - this->_lastBlinkTime) >= this->_startTime)
+                if (this->_blinkTimes == 0)
                 {
-                    isBlink = true;
-                    this->_blinkState = BlinkState::BLINK;
+                    this->_blinkState = BlinkState::DISABLE;
                 }
 
-                break;
+                switch (this->_blinkState)
+                {
+                case BlinkState::DISABLE:
+                    return;
 
-            case BlinkState::BLINK:
-                if (this->_outputState == LOW && (unsigned long)(millis() - this->_lastBlinkTime) >= this->_lowTime)
-                    isBlink = true;
-                else if (this->_outputState == HIGH && (unsigned long)(millis() - this->_lastBlinkTime) >= this->_highTime)
-                    isBlink = true;
+                case BlinkState::DELAY:
+                    if ((unsigned long)(millis() - this->_lastBlinkTime) >= this->_startTime)
+                    {
+                        isBlink = true;
+                        this->_blinkState = BlinkState::BLINK;
+                    }
 
-                break;
+                    break;
 
-            default:
-                return;
-            }
+                case BlinkState::BLINK:
+                    if (this->_outputState == LOW && (unsigned long)(millis() - this->_lastBlinkTime) >= this->_lowTime)
+                        isBlink = true;
+                    else if (this->_outputState == HIGH && (unsigned long)(millis() - this->_lastBlinkTime) >= this->_highTime)
+                        isBlink = true;
 
-            if (isBlink)
-            {
-                this->_outputState = (this->_outputState == LOW) ? HIGH : LOW;
-                digitalWrite(this->_outputPin, this->_outputState);
-                this->_lastBlinkTime = millis();
+                    break;
 
-                if (this->_blinkTimes > 0)
-                    this->_blinkTimes--;
+                default:
+                    return;
+                }
+
+                if (isBlink)
+                {
+                    this->_outputState = (this->_outputState == LOW) ? HIGH : LOW;
+                    digitalWrite(this->_outputPin, this->_outputState);
+                    this->_lastBlinkTime = millis();
+
+                    if (this->_blinkTimes > 0)
+                        this->_blinkTimes--;
+                }
             }
         }
 
     private:
-        int _outputPin;
+        byte _outputPin;
         int _outputState;
         BlinkState _blinkState;
 

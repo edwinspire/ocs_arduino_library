@@ -1,18 +1,32 @@
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
-#include <Preferences.h>
+
 #include "Outputpin.cpp"
+
+#ifdef ESP32
+#include <Preferences.h>
+#elif defined(ESP8266)
+#include <EEPROM.h>
+//#define EEPROM_SIZE 1024
+#endif
 
 using namespace websockets;
 
 namespace ocs
 {
+    const byte MAX_SSID_WIFI = 4;
+    const unsigned int EEPROM_SIZE_DEFAULT = 1024;
+    const String default_websocketHost = "wss://open-community-safety.herokuapp.com/ws/device";
+    const String default_deviceid = "00a0aa00-aa00-0000-0000-000000000000";
+    const byte MAX_OUTPUTS = 1;
 
     struct WifiParams
     {
         String ssid;
         String pwd;
     };
+
+    const WifiParams default_wifi = {.ssid = "accesspoint", .pwd = "123456@qwert"};
 
     enum StatusAlarm
     {
@@ -32,17 +46,73 @@ namespace ocs
     {
 
     private:
-        Preferences pref;
+        //      unsigned long last_time;
+        //    unsigned long interval = 500;
 
     public:
-        String getPreference(String key, String default_value)
+        DynamicJsonDocument data;
+
+        LocalStore() : data(ocs::EEPROM_SIZE_DEFAULT) {}
+
+        static DynamicJsonDocument read()
         {
-            // Serial.println("getPreference: " + key);
-            pref.begin(key.c_str(), true);
-            String value = pref.getString(key.c_str(), default_value.c_str());
-            pref.end();
-            return value;
+
+            char eeprom_data[ocs::EEPROM_SIZE_DEFAULT];
+            EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT); // tamaño maximo 4096 bytes
+                                                    //       Serial.print("3");
+                                                    //     Serial.print("Read EEPROM " + String(ocs::EEPROM_SIZE_DEFAULT));
+                                                    //    Serial.print("4");
+
+            unsigned int i = 0;
+            //   Serial.print("5");
+            while (i < ocs::EEPROM_SIZE_DEFAULT)
+            {
+                eeprom_data[i] = EEPROM.read(i);
+                // Serial.println(String(i) + " - " + String(eeprom_data[i]));
+                i++;
+            }
+            // Serial.print("6");
+            EEPROM.end();
+            //  Serial.print("7");
+            Serial.println(eeprom_data);
+            DynamicJsonDocument doc(ocs::EEPROM_SIZE_DEFAULT);
+            DeserializationError err = deserializeJson(doc, eeprom_data);
+            // Serial.print("8");
+            if (err)
+            {
+                Serial.print(F("read deserializeJson() failed: "));
+                Serial.println(err.c_str());
+
+                EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT); // tamaño maximo 4096 bytes
+
+                unsigned int i = 0;
+                while (i < ocs::EEPROM_SIZE_DEFAULT)
+                {
+                    EEPROM.write(i, 255);
+                    i++;
+                }
+                EEPROM.commit();
+                EEPROM.end();
+            }
+
+            return doc;
         }
+
+        /*
+                void loop()
+                {
+
+                    if (millis() - this->last_time > this->interval)
+                    {
+                        if (this->pendingChangesToSave)
+                        {
+                            this->save();
+                        }
+                    }
+                }
+        */
+
+#ifdef ESP32
 
         bool removePreference(String key)
         {
@@ -52,9 +122,19 @@ namespace ocs
             return r;
         }
 
+#elif defined(ESP8266)
+
+        bool removePreference(String key)
+        {
+            bool r = false;
+            return r;
+        }
+#endif
+
+#ifdef ESP32
         bool setPreference(String key, String value)
         {
-             Serial.println("setPreference: " + key + " = " + value);
+            Serial.println("setPreference: " + key + " = " + value);
             //  Serial.println("setPreference: " + key);
             bool r = false;
             if (key.length() > 0)
@@ -68,6 +148,103 @@ namespace ocs
             }
             return r;
         }
+
+#elif defined(ESP8266)
+
+        void refreshData()
+        {
+            //            this->data = this->readData();
+        }
+
+        static bool save(DynamicJsonDocument doc)
+        {
+            bool r = false;
+            Serial.println("--> Save - Cambios pendientes ");
+            String data_serialized = "";
+            serializeJson(doc, data_serialized);
+            Serial.println(data_serialized);
+            EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT);
+
+            // Length (with one extra character for the null terminator)
+            unsigned int str_len = data_serialized.length() + 1;
+
+            // Prepare the character array (the buffer)
+            char char_array[str_len];
+
+            // Copy it over
+            data_serialized.toCharArray(char_array, str_len);
+
+            unsigned int i = 0;
+            while (i < str_len)
+            {
+                EEPROM.write(i, char_array[i]);
+                i++;
+            }
+
+            r = EEPROM.commit();
+            EEPROM.end();
+
+            /*
+                        if (this->pendingChangesToSave)
+                        {
+                            Serial.println("--> Save - Cambios pendientes ");
+                            String data_serialized = "";
+                            serializeJson(this->data, data_serialized);
+                            Serial.println(data_serialized);
+                            EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT);
+
+                            // Length (with one extra character for the null terminator)
+                            unsigned int str_len = data_serialized.length() + 1;
+
+                            // Prepare the character array (the buffer)
+                            char char_array[str_len];
+
+                            // Copy it over
+                            data_serialized.toCharArray(char_array, str_len);
+
+                            unsigned int i = 0;
+                            while (i < str_len)
+                            {
+                                EEPROM.write(i, char_array[i]);
+                                i++;
+                            }
+
+                            EEPROM.commit();
+                            EEPROM.end();
+                            //this->pendingChangesToSave = false;
+                            Serial.println("--> Save - Fin cambios pendientes ");
+                            this->refreshData();
+                        }
+                        */
+            return r;
+        }
+
+        bool setPreference(String key, String value)
+        {
+            Serial.println("setPreference: " + key + " = " + value);
+            //  Serial.println("setPreference: " + key);
+            bool r = false;
+            // https://github.com/esp8266/Arduino/blob/master/libraries/EEPROM/examples/eeprom_read/eeprom_read.ino
+
+            if (key.length() > 0)
+            {
+                Serial.println("setPreference - 1");
+                this->refreshData();
+                Serial.println("setPreference - 2");
+                /*
+                if (this->data[key] != value)
+                {
+                    Serial.println("setPreference - 3");
+                    r = true;
+                    this->data[key] = value;
+                    this->pendingChangesToSave = true;
+                    this->save();
+                }
+                */
+            }
+            return r;
+        }
+#endif
     };
 
     namespace input
@@ -81,59 +258,80 @@ namespace ocs
             UNDEFINED
         };
 
-        class Input : private LocalStore
+        class Input
         {
 
         private:
-            int value;
-            int gpio;
-            ulong last_time;
-            ulong interval = 500;
+            //        LocalStore storage
+            unsigned int value;
+
+            unsigned long last_time;
+            unsigned long interval = 500;
             float zone_threshold = 40;
             Status last_status = Status::UNDEFINED;
-            String name = "Physical Button";
 
         public:
             Status status = Status::UNDEFINED;
+            String name = "Physical Button";
+            byte gpio = 255;
 
             DynamicJsonDocument toJson()
             {
                 DynamicJsonDocument doc(256);
                 doc["gpio"] = this->gpio;
                 doc["status"] = this->status;
-                doc["name"] = this->getName();
+                doc["name"] = this->name;
 
                 return doc;
             }
+
             int getvalue()
             {
-                this->value = analogRead(this->gpio); // read the input pin
+                if (this->gpio != 255)
+                {
+                    this->value = analogRead(this->gpio); // read the input pin
+                }
+                else
+                {
+                    this->value = 0;
+                }
                 return this->value;
             }
-            void setup(int gpio_input)
-            {
-                this->gpio = gpio_input;
-                pinMode(this->gpio, INPUT);
-            }
-
-            bool setName(String name)
+            void setup(byte gpio_input, String name)
             {
                 this->name = name;
-                return this->setPreference("input_" + String(this->gpio), name);
-            }
+                this->gpio = gpio_input;
 
-            String getName()
-            {
-                String n = "input_" + String(this->gpio);
-                this->name = this->getPreference(n, "Local GPIO " + String(this->gpio));
-                return this->name;
+                if (this->name == NULL || this->name.length() < 1)
+                {
+                    this->name = "Input " + String(this->gpio);
+                }
+
+                if (this->gpio != 255)
+                {
+                    pinMode(this->gpio, INPUT);
+                }
             }
+            /*
+                        bool setName(String name)
+                        {
+                            this->name = name;
+                            return this->setPreference("input_" + String(this->gpio), name);
+                        }
+
+                        String getName()
+                        {
+                            String n = "input_" + String(this->gpio);
+                            this->name = this->getPreference(n, "Local GPIO " + String(this->gpio));
+                            return this->name;
+                        }
+                        */
 
             bool changed()
             {
                 bool Change = false;
 
-                if (millis() - last_time > interval)
+                if (this->gpio != 255 && millis() - last_time > interval)
                 {
 
                     this->last_time = millis();
@@ -172,82 +370,174 @@ namespace ocs
         };
     };
 
-    const uint MAX_SSID = 3;
+    //    const byte MAX_SSID = 3;
 
-    class OpenCommunitySafety : private LocalStore
+    struct InputConfig
+    {
+        String name;
+        byte gpio;
+    };
+
+    struct outputConfig
+    {
+        //        edwinspire::OutputPin output;
+        byte gpio;
+    };
+
+    class Config
+    {
+    private:
+        void setDefault()
+        {
+            if (this->websocketHost == NULL || this->websocketHost.length() < 6)
+            {
+                this->websocketHost = ocs::default_websocketHost;
+            }
+
+            if (this->deviceId == NULL || this->deviceId.length() < 15)
+            {
+                this->deviceId = ocs::default_deviceid;
+            }
+
+            if (this->latitude == 0 && this->longitude == 0)
+            {
+                this->latitude = "37.44362";
+                this->longitude = "-122.15719";
+            }
+            //  this->MAX_SSID_WIFI = ocs::MAX_SSID_WIFI;
+            this->websocketHostRequest = this->websocketHost + "?device=" + this->deviceId;
+        }
+
+    public:
+        Config()
+        {
+            setDefault();
+        }
+
+        bool saveLocalStorage()
+        {
+            this->setDefault();
+            return ocs::LocalStore::save(this->toJson());
+        }
+
+        void fromLocalStore()
+        {
+            this->fromJson(LocalStore::read());
+        }
+
+        void fromJson(DynamicJsonDocument data)
+        {
+            this->websocketHost = data["websocketHost"].as<String>();
+
+            for (byte i = 0; i < ocs::MAX_SSID_WIFI; i = i + 1)
+            {
+
+                if (i == 0)
+                {
+                    // Setea en primera posición el wifi default
+                    this->wifi[i].ssid = ocs::default_wifi.ssid;
+                    this->wifi[i].pwd = ocs::default_wifi.pwd;
+                }
+                else if (!data["wifi"][i]["ssid"].isNull() && data["wifi"][i]["ssid"].as<String>().length() > 5)
+                {
+                    this->wifi[i].ssid = data["wifi"][i]["ssid"].as<String>();
+                    this->wifi[i].pwd = data["wifi"][i]["pwd"].as<String>();
+                }
+            }
+
+            this->deviceId = data["deviceId"].as<String>();
+            this->caCert_fingerPrint = data["caCert_fingerPrint"].as<String>();
+
+            this->input->gpio = data["input"]["gpio"].as<byte>();
+            this->output->gpio = data["output"]["gpio"].as<byte>();
+            this->setDefault();
+        }
+
+        DynamicJsonDocument toJson()
+        {
+            this->setDefault();
+            DynamicJsonDocument doc(2048);
+            doc["input01"] = this->input->gpio;
+            doc["deviceId"] = this->deviceId;
+            doc["websocketHost"] = this->websocketHost;
+            doc["latitude"] = this->latitude;
+            doc["longitude"] = this->longitude;
+            doc["MAX_SSID_WIFI"] = ocs::MAX_SSID_WIFI;
+
+            for (byte i = 0; i < ocs::MAX_SSID_WIFI; i = i + 1)
+            {
+                if (i == 0)
+                {
+                    // Posición 0 siempre va la el SSID default
+                    doc["wifi"][i]["ssid"] = ocs::default_wifi.ssid;
+                    doc["wifi"][i]["pwd"] = ocs::default_wifi.ssid;
+                }
+                else
+                {
+                    doc["wifi"][i]["ssid"] = this->wifi[i].ssid;
+                    doc["wifi"][i]["pwd"] = this->wifi[i].pwd;
+                }
+            }
+
+            doc["caCert_fingerPrint"] = this->caCert_fingerPrint;
+
+            return doc;
+        }
+        String websocketHost;
+        WifiParams wifi[ocs::MAX_SSID_WIFI];
+        InputConfig input[3];
+        outputConfig output[ocs::MAX_OUTPUTS];
+        String deviceId;
+        String caCert_fingerPrint;
+        String latitude;
+        String longitude;
+        // byte MAX_SSID_WIFI;
+        String websocketHostRequest;
+    };
+
+    class OpenCommunitySafety
     {
 
     public:
-        String websocketHost;
-        String deviceId;
+        typedef Config (*delegateSetup)();
+        typedef void (*delegateSaveConfig)(ocs::Config);
+
+        Config ConfigParameter;
+        delegateSaveConfig hsave;
+        // String websocketHost;
+        //  String deviceId;
         input::Input input01;
-
-        bool deleteSSID(uint position)
-        {
-            return this->removePreference("ssid_" + String(position));
-        }
-
-        uint getMaxSSIDs()
-        {
-            return MAX_SSID;
-        }
-
-        WifiParams *getSSIDs()
-        {
-            WifiParams *listSSID = new WifiParams[MAX_SSID];
-            for (byte i = 0; i < MAX_SSID; i = i + 1)
-            {
-                listSSID[i] = this->getSSID(i);
-            }
-            return listSSID;
-        }
-
-        WifiParams getSSID(uint position)
-        {
-            String ssid_str = this->getPreference("ssid_" + String(position), "");
-          //  Serial.println("ssid_str: " + ssid_str);
-            return this->deserializeSSID(ssid_str);
-        }
-
-        bool setSSID(uint position, String ssid, String pwd)
-        {
-            bool r = false;
-            if (position <= MAX_SSID)
-            {
-                r = this->setPreference("ssid_" + String(position), this->serializeSSID(ssid, pwd));
-            }
-            else
-            {
-                Serial.println("Invalid ssid position " + String(position));
-            }
-            return r;
-        }
 
         void setAlarm(ocs::AlarmType at)
         {
 
             Serial.println("Entra en setAlarm");
-            this->out01.low();
 
-            switch (at)
+            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
             {
-            case ocs::AlarmType::TEST:
-                this->out01.blink(2000, 1500, 0, 4); // 1500 milliseconds ON, 2000 milliseconds OFF, start immidiately, blink 10 times (5 times OFF->ON, 5 times ON->OFF, interleavedly)
-                break;
-            case ocs::AlarmType::EMERGENCY:
-                this->out01.blink(500, 5 * 60 * 1000, 0, 2); // 5 minutes
-                break;
-            case ocs::AlarmType::PULSE:
-                this->out01.blink(3000, 4000, 0, 50); // 5 minutes
-                break;
-            default:
-                this->out01.low();
-                break;
+                this->outputs[i].low();
+
+                switch (at)
+                {
+                case ocs::AlarmType::TEST:
+                    this->outputs[i].blink(2000, 1500, 0, 4); // 1500 milliseconds ON, 2000 milliseconds OFF, start immidiately, blink 10 times (5 times OFF->ON, 5 times ON->OFF, interleavedly)
+                    break;
+                case ocs::AlarmType::EMERGENCY:
+                    this->outputs[i].blink(500, 5 * 60 * 1000, 0, 2); // 5 minutes
+                    break;
+                case ocs::AlarmType::PULSE:
+                    this->outputs[i].blink(3000, 4000, 0, 50); // 5 minutes
+                    break;
+                default:
+                    this->outputs[i].low();
+                    break;
+                }
             }
         }
 
         void loop()
         {
+
             // let the websockets client check for incoming messages
             if (this->wsclient.available())
             {
@@ -263,7 +553,12 @@ namespace ocs
                 this->connectWS();
             }
 
-            this->out01.loop();
+            //            this->out01.loop();
+
+            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
+            {
+                this->outputs[i].loop();
+            }
 
             if (this->input01.changed())
             {
@@ -283,50 +578,13 @@ namespace ocs
 
         bool setFromJson(DynamicJsonDocument json)
         {
-            bool r = false;
-            Serial.println("setFromJson");
-            JsonArray array = json["ssid"].as<JsonArray>();
-            uint i = 0;
-            for (JsonVariant v : array)
-            {
-                this->setSSID(i, v["ssid"].as<String>(), v["pwd"].as<String>());
-                i++;
-            }
-
-            this->setdeviceId(json["deviceId"].as<String>());
-            this->setLatitude(json["latitude"].as<String>());
-            this->setLongitude(json["longitude"].as<String>());
-            this->setWebSocketHost(json["websocketHost"].as<String>());
-            this->input01.setName(json["input01"]["name"].as<String>());
-
-            // Serial.println(json["ssid"].as<String>());
-
-            return r;
+            this->ConfigParameter.fromJson(json);
+            return this->ConfigParameter.saveLocalStorage();
         }
 
         DynamicJsonDocument toJson()
         {
-            DynamicJsonDocument doc(2048);
-            doc["input01"] = this->input01.toJson();
-            doc["deviceId"] = this->deviceId;
-            doc["websocketHost"] = this->getWebSocketHost();
-            doc["latitude"] = this->getLatitude();
-            doc["longitude"] = this->getLongitude();
-            doc["MAX_SSID"] = MAX_SSID;
-
-            // const int size = sizeof(this->listSSID) / sizeof(this->listSSID[0]);
-
-            // Busca el ssid para actualizarlo
-            for (byte i = 0; i < MAX_SSID; i = i + 1)
-            {
-                WifiParams wp = this->getSSID(i);
-                doc["ssid"][i]["ssid"] = wp.ssid;
-                doc["ssid"][i]["pwd"] = wp.pwd;
-            }
-
-            doc["CACert"] = this->CACert;
-
-            return doc;
+            return this->ConfigParameter.toJson();
         }
 
         void wssend(DynamicJsonDocument json_doc)
@@ -337,61 +595,41 @@ namespace ocs
             this->wsclient.send(outputJson);
         }
 
-        void setup(int gpio_in_01, int gpio_out_01, const char *ssl_ca_cert)
+        void setup(delegateSetup handlerSetup)
         {
-            this->websocketHost = this->getPreference("websocketHost", "wss://open-community-safety.herokuapp.com/ws/device");
-            this->deviceId = this->getPreference("deviceid", "00a0aa00-aa00-0000-0000-000000000000");
-            this->setup(this->websocketHost, this->deviceId, gpio_in_01, gpio_out_01, ssl_ca_cert);
+            this->setup(handlerSetup());
         }
 
-        String getWebSocketHost()
+        void setup(delegateSetup handlerSetup, delegateSaveConfig handlerSave)
         {
-            return this->getPreference("websocketHost", "wss://open-community-safety.herokuapp.com/ws/device");
+            this->hsave = handlerSave;
+            this->setup(handlerSetup);
         }
 
-        void setWebSocketHost(String websocketHost)
+        void setup(ocs::Config config)
         {
-            this->setPreference("websocketHost", websocketHost);
-        }
+            this->ConfigParameter = config;
 
-        String getdeviceId()
-        {
-            return this->getPreference("deviceid", "00a0aa00-aa00-0000-0000-000000000000");
-        }
-
-        void setdeviceId(String deviceId)
-        {
-            this->setPreference("deviceid", deviceId);
-        }
-
-        void setup(String websocketHost, String deviceId, int gpio_in_01, int gpio_out_01, const char *ssl_ca_cert)
-        {
-
-            if (websocketHost.length() < 1)
+#ifdef ESP32
+            this->wsclient.setcaCert_fingerPrint_fingerPrint_fingerPrint(ssl_ca_cert);
+#elif defined(ESP8266)
+            // Serial.println(this->ConfigParameter.caCert_fingerPrint);
+            if (this->ConfigParameter.websocketHost.startsWith("wss"))
             {
-                websocketHost = this->getWebSocketHost();
+                this->wsclient.setFingerprint(this->ConfigParameter.caCert_fingerPrint.c_str());
             }
-            else
-            {
-                this->setWebSocketHost(websocketHost);
-            }
+#endif
 
-            if (deviceId.length() < 1)
-            {
-                deviceId = this->getdeviceId();
-            }
-            else
-            {
-                this->setdeviceId(deviceId);
-            }
+            this->input01.setup(this->ConfigParameter.input->gpio, this->ConfigParameter.input->name);
 
-            this->CACert = ssl_ca_cert;
-            this->websocketHost = websocketHost;
-            this->deviceId = deviceId;
-            this->wsclient.setCACert(ssl_ca_cert);
-            this->input01.setup(gpio_in_01);
-            this->out01.setup(gpio_out_01);
-            //            this->listSSID = this->getSSIDs();
+            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
+            {
+
+                if (this->ConfigParameter.output[i].gpio != 255)
+                {
+                    this->outputs[i].setup(this->ConfigParameter.output[i].gpio);
+                }
+            }
 
             //   run callback when messages are received
             this->wsclient.onMessage([&](WebsocketsMessage message) -> void
@@ -412,7 +650,7 @@ namespace ocs
                                          {
 
                                              // Serial.println(doc["command"]);
-                                             uint command = doc["command"];
+                                             unsigned int command = doc["command"];
 
                                              switch (command)
                                              {
@@ -426,14 +664,13 @@ namespace ocs
                                              break;
                                              case 1000:
                                                  Serial.println("Reasignar UUID");
-                                                 String dev_Id = doc["deviceid"];
-                                                 //deviceId = dev_Id;
-                                                 this->setdeviceId(dev_Id);
-/*
-                                                  pref.begin("deviceid", false);
-                                                  pref.putString("deviceid", dev_Id);
-                                                  pref.end();
-                                                  */
+                                                 //String dev_Id = doc["deviceid"];
+                                                 this->ConfigParameter.deviceId = doc["deviceId"].as<String>();
+                                                 Serial.println("Reasignada UUID");
+                                                 //this->setDefaultValues();
+                                                 Serial.println("seteada UUID");
+
+this->hsave(this->ConfigParameter);
 
                                                  break;
                                              }
@@ -464,11 +701,9 @@ namespace ocs
         void connectWS()
         {
 
-            String urlws = this->websocketHost + "?device=" + this->deviceId;
-            Serial.println("try connect ws: " + urlws);
-            //  Serial.printf("WebSocket available %d\n", this->wsclient.available());
+            Serial.println(this->ConfigParameter.websocketHostRequest);
             delay(500);
-            bool connected = this->wsclient.connect(urlws);
+            bool connected = this->wsclient.connect(this->ConfigParameter.websocketHostRequest);
             if (connected)
             {
                 Serial.println("WS Connected");
@@ -483,62 +718,12 @@ namespace ocs
         }
 
     private:
-        // WifiParams listSSID[MAX_SSID];
+        // unsigned long last_time_save_config;
+        // unsigned long interval_save_config = 5000;
+
         WebsocketsClient wsclient;
-        edwinspire::OutputPin out01;
-        //       Preferences pref;
+        edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS];
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
-        const char *CACert;
-        String latitude;
-        String longitude;
-        //        const uint MAX_SSID = 3;
-
-        String serializeSSID(String ssid, String pwd)
-        {
-            String r = "";
-            DynamicJsonDocument doc(256);
-            doc["ssid"] = ssid;
-            doc["pwd"] = pwd;
-            serializeJson(doc, r);
-            return r;
-        }
-
-        WifiParams deserializeSSID(String json_ssid)
-        {
-            // Serial.println("deserializeSSID: " + json_ssid);
-            DynamicJsonDocument doc(128);
-            deserializeJson(doc, json_ssid);
-            return createWifiParams(doc["ssid"].as<String>(), doc["pwd"].as<String>());
-        }
-
-        WifiParams createWifiParams(String ssid, String pwd)
-        {
-            // Serial.println("createWifiParams: " + ssid);
-            WifiParams wp;
-            wp.ssid = ssid;
-            wp.pwd = pwd;
-            return wp;
-        }
-
-        String getLatitude()
-        {
-            return this->getPreference("latitude", "0");
-        }
-
-        void setLatitude(String latitude)
-        {
-            this->setPreference("latitude", latitude);
-        }
-
-        String getLongitude()
-        {
-            return this->getPreference("longitude", "0");
-        }
-
-        void setLongitude(String longitude)
-        {
-            this->setPreference("longitude", longitude);
-        }
     };
 }
