@@ -16,7 +16,46 @@
     ],
     "license": "LGPL-2.1",
     "homepage": "https://github.com/edwinspire/ocs_arduino_library",
-    "dependencies": {},
-    "frameworks": "*",
-    "platforms": "*"
+    "frameworks": "arduino",
+    "platforms": [
+        "espressif8266",
+        "espressif32"
+    ],
+    "dependencies": [
+        {
+            "name": "LittleFS",
+            "platforms": "espressif8266"
+        },
+        {
+            "name": "ESPAsyncTCP",
+            "platforms": "espressif8266"
+        },
+        {
+            "name": "ESP8266WiFi",
+            "platforms": [
+                "espressif8266"
+            ]
+        },
+        {
+            "name": "Arduino",
+            "platforms": [
+                "espressif8266",
+                "espressif32"
+            ]
+        },
+        {
+            "name": "ArduinoJson",
+            "platforms": [
+                "espressif8266",
+                "espressif32"
+            ]
+        },
+        {
+            "name": "ESPAsyncWebServer",
+            "platforms": [
+                "espressif8266",
+                "espressif32"
+            ]
+        }
+    ]
 }
