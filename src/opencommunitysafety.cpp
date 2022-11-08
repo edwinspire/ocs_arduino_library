@@ -603,15 +603,24 @@ namespace ocs
             ocsWebAdmin.begin();
         }
 
-        void setup(delegateSetup handlerSetup)
-        {
-            this->setup(handlerSetup());
-        }
+        /*
+                void setup(delegateSetup handlerSetup)
+                {
+                    this->setup(handlerSetup());
+                }
 
-        void setup(delegateSetup handlerSetup, delegateSaveConfig handlerSave)
+                void setup(delegateSetup handlerSetup, delegateSaveConfig handlerSave)
+                {
+                    this->hsave = handlerSave;
+                    this->setup(handlerSetup);
+                }
+                */
+
+        void setup()
         {
-            this->hsave = handlerSave;
-            this->setup(handlerSetup);
+            ocs::Config c;
+            c.fromLocalStore();
+            this->setup(c);
         }
 
         void setup(ocs::Config config)
@@ -691,7 +700,8 @@ namespace ocs
                                                  //this->setDefaultValues();
                                                  Serial.println("seteada UUID");
 
-this->hsave(this->ConfigParameter);
+//this->hsave(this->ConfigParameter);
+this->ConfigParameter.saveLocalStorage();
 
                                                  break;
                                              }
