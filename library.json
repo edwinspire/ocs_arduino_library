@@ -27,6 +27,15 @@
             "platforms": "espressif8266"
         },
         {
+            "owner": "me-no-dev",
+            "name": "ESPAsyncWebServer",
+            "version": "^3.0.0",
+            "platforms": [
+                "espressif8266",
+                "espressif32"
+            ]
+        },
+        {
             "name": "ESPAsyncTCP",
             "platforms": "espressif8266"
         },
@@ -46,14 +55,6 @@
         {
             "owner": "bblanchon",
             "name": "ArduinoJson",
-            "platforms": [
-                "espressif8266",
-                "espressif32"
-            ]
-        },
-        {
-            "name": "ESPAsyncWebServer",
-            "version": "^3.0.0",
             "platforms": [
                 "espressif8266",
                 "espressif32"
