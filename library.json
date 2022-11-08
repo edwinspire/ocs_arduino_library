@@ -54,6 +54,7 @@
         {
             "owner": "esphome",
             "name": "ESPAsyncWebServer",
+            "version": "^3.0.0",
             "platforms": [
                 "espressif8266",
                 "espressif32"
