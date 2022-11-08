@@ -71,16 +71,19 @@ namespace ocs
 
             this->on("/build/bundle.js", HTTP_GET, [&](AsyncWebServerRequest *request)
                      { request->send(LittleFS, F("/bundle.js"), F("application/javascript")); });
-            this->onNotFound(notFound);         
+            this->onNotFound([&](AsyncWebServerRequest *request)
+                             { request->send(404, F("text/plain"), "Not found"); });
         }
 
 #endif
 
     private:
+    /*
         void notFound(AsyncWebServerRequest *request)
         {
             request->send(404, F("text/plain"), "Not found");
         }
+        */
 
         /*
             const char *responseRoot()

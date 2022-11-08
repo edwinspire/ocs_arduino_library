@@ -11,7 +11,8 @@
 #endif
 
 using namespace websockets;
-WebAdmin ocsWebAdmin(80);
+
+ocs::WebAdmin ocsWebAdmin(80);
 
 namespace ocs
 {
@@ -596,7 +597,8 @@ namespace ocs
             this->wsclient.send(outputJson);
         }
 
-        void begin(){
+        void begin()
+        {
 
             ocsWebAdmin.begin();
         }
@@ -615,7 +617,12 @@ namespace ocs
         void setup(ocs::Config config)
         {
 
-            ocsWebAdmin.on("/getsettings", this->getSettings);
+            ocsWebAdmin.on("/getsettings", [&](AsyncWebServerRequest *request)
+                           {
+            String outputJson = "";
+            serializeJson(this->toJson(), outputJson);
+            Serial.println(outputJson);
+            request->send(200, F("application/json"), outputJson); });
             // ocsWebAdmin.on("/setsettings", HTTP_POST, onRequest, onUpload, setSettings);
             ocsWebAdmin.addHandler(this->handlerBody); // Para poder leer el body enviado en el request
 
@@ -740,17 +747,18 @@ this->hsave(this->ConfigParameter);
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
 
-        AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettings", [](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                           {
-ocsClass.setFromJson(json);
+        AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettings", [&](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                   {
+this->setFromJson(json);
     request->send(200, F("application/json"), "{}"); });
-
-        void getSettings(AsyncWebServerRequest *request)
-        {
-            String outputJson = "";
-            serializeJson(ocsClass.toJson(), outputJson);
-            Serial.println(outputJson);
-            request->send(200, F("application/json"), outputJson);
-        }
+        /*
+                void getSettings(AsyncWebServerRequest *request)
+                {
+                    String outputJson = "";
+                    serializeJson(ocsClass.toJson(), outputJson);
+                    Serial.println(outputJson);
+                    request->send(200, F("application/json"), outputJson);
+                }
+                */
     };
 }
