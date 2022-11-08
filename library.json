@@ -52,7 +52,6 @@
             ]
         },
         {
-            "owner": "esphome",
             "name": "ESPAsyncWebServer",
             "version": "^3.0.0",
             "platforms": [
