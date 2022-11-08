@@ -44,6 +44,7 @@
             ]
         },
         {
+            "owner": "bblanchon",
             "name": "ArduinoJson",
             "platforms": [
                 "espressif8266",
