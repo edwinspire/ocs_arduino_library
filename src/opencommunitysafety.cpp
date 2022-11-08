@@ -1,16 +1,17 @@
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
-
 #include "Outputpin.cpp"
 
 #ifdef ESP32
 #include <Preferences.h>
 #elif defined(ESP8266)
 #include <EEPROM.h>
-//#define EEPROM_SIZE 1024
+#include "WebServer.cpp"
+#include "AsyncJson.h"
 #endif
 
 using namespace websockets;
+WebAdmin ocsWebAdmin(80);
 
 namespace ocs
 {
@@ -595,6 +596,11 @@ namespace ocs
             this->wsclient.send(outputJson);
         }
 
+        void begin(){
+
+            ocsWebAdmin.begin();
+        }
+
         void setup(delegateSetup handlerSetup)
         {
             this->setup(handlerSetup());
@@ -608,6 +614,14 @@ namespace ocs
 
         void setup(ocs::Config config)
         {
+
+            ocsWebAdmin.on("/getsettings", this->getSettings);
+            // ocsWebAdmin.on("/setsettings", HTTP_POST, onRequest, onUpload, setSettings);
+            ocsWebAdmin.addHandler(this->handlerBody); // Para poder leer el body enviado en el request
+
+            // ocsWebAdmin.onNotFound(notFound);
+            ocsWebAdmin.setup();
+
             this->ConfigParameter = config;
 
 #ifdef ESP32
@@ -725,5 +739,18 @@ this->hsave(this->ConfigParameter);
         edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS];
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
+
+        AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettings", [](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                           {
+ocsClass.setFromJson(json);
+    request->send(200, F("application/json"), "{}"); });
+
+        void getSettings(AsyncWebServerRequest *request)
+        {
+            String outputJson = "";
+            serializeJson(ocsClass.toJson(), outputJson);
+            Serial.println(outputJson);
+            request->send(200, F("application/json"), outputJson);
+        }
     };
 }

@@ -66,6 +66,13 @@
                 "espressif8266",
                 "espressif32"
             ]
+        },
+        {
+            "name": "AsyncJson",
+            "platforms": [
+                "espressif8266",
+                "espressif32"
+            ]
         }
     ]
 }
