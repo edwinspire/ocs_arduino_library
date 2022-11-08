@@ -27,6 +27,10 @@
             "platforms": "espressif8266"
         },
         {
+            "name": "Hash",
+            "platforms": "espressif8266"
+        },
+        {
             "owner": "me-no-dev",
             "name": "ESPAsyncWebServer",
             "version": "^3.0.0",
