@@ -35,7 +35,7 @@
             "platforms": "espressif8266"
         },
         {
-            "owner": "me-no-dev",
+            "owner": "esphome",
             "name": "ESPAsyncWebServer-esphome",
             "version": "*",
             "platforms": [
