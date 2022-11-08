@@ -37,6 +37,7 @@
         {
             "owner": "me-no-dev",
             "name": "ESPAsyncWebServer",
+            "version": "*",
             "platforms": [
                 "espressif8266",
                 "espressif32"
