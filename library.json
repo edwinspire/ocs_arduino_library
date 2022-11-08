@@ -31,9 +31,9 @@
             "platforms": "espressif8266"
         },
         {
-            "owner": "ESPHome",
-            "name": "ESP Async WebServer",
-            "version": "^3.0.0",
+            "owner": "me-no-dev",
+            "name": "ESPAsyncWebServer",
+            
             "platforms": [
                 "espressif8266",
                 "espressif32"
