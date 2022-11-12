@@ -1,14 +1,9 @@
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
 #include "Outputpin.cpp"
-
-#ifdef ESP32
-#include <Preferences.h>
-#elif defined(ESP8266)
 #include <EEPROM.h>
 #include "WebServer.cpp"
 #include "AsyncJson.h"
-#endif
 
 using namespace websockets;
 
@@ -16,11 +11,97 @@ ocs::WebAdmin ocsWebAdmin(80);
 
 namespace ocs
 {
+
+    struct InputConfig
+    {
+        String name;
+        byte gpio = 255;
+        bool enabled = false;
+    };
+
+    struct outputConfig
+    {
+        //        edwinspire::OutputPin output;
+        String name;
+        byte gpio = 255;
+        bool enabled = false;
+    };
+
+    const byte MAX_OUTPUTS = 1;
+    const byte MAX_INPUTS = 1;
+
+    /*
+    #ifdef ESP32
+
+    #if defined(ESP_BOARD)
+
+    #if ESP_BOARD == "ESP32_DEVKIT_V1_DOIT"
+        const byte MAX_OUTPUTS = 1;
+        const byte MAX_INPUTS = 1;
+        ocs::outputConfig default_outputs[MAX_OUTPUTS] = {{.gpio = 21, .name = "GPIO 21"}};
+        ocs::outputConfig default_inputs[MAX_INPUTS] = {{.gpio = 23, .name = "GPIO 23"}};
+    #elif ESP_BOARD == "ESP32_DEVKITC_V4"
+        const byte MAX_OUTPUTS = 1;
+        const byte MAX_INPUTS = 1;
+        ocs::outputConfig default_outputs[MAX_OUTPUTS] = {{.gpio = 21, .name = "GPIO 21"}};
+        ocs::outputConfig default_inputs[MAX_INPUTS] = {{.gpio = 23, .name = "GPIO 23"}};
+    #else
+        const byte MAX_OUTPUTS = 1;
+        const byte MAX_INPUTS = 1;
+        ocs::outputConfig default_outputs[MAX_OUTPUTS] = {{.gpio = 21, .name = "GPIO 21"}};
+        ocs::outputConfig default_inputs[MAX_INPUTS] = {{.gpio = 23, .name = "GPIO 23"}};
+    #endif
+
+    #else
+        const byte MAX_OUTPUTS = 1;
+        const byte MAX_INPUTS = 1;
+
+        outputConfig *default_outputs()
+        {
+            static outputConfig r[MAX_OUTPUTS];
+            r[0] = { .gpio = 21, .name = "GPIO 21"}
+
+            return r;
+        };
+        InputConfig *default_inputs()
+        {
+            static InputConfig r[MAX_INPUTS];
+            r[0] = {.gpio = 23, .name = "GPIO 23"};
+
+            return r;
+        };
+    #endif
+
+    #elif defined(ESP8266)
+
+    #if defined(ESP_BOARD)
+
+    #if ESP_BOARD == "ESP-01S"
+        const byte MAX_OUTPUTS = 1;
+        const byte MAX_INPUTS = 1;
+
+    #elif ESP_BOARD == "ESP8266"
+        const byte MAX_OUTPUTS = 1;
+        const byte MAX_INPUTS = 1;
+    #else
+        const byte MAX_OUTPUTS = 1;
+        const byte MAX_INPUTS = 1;
+    #endif
+
+    #else
+        // No ha definido el modelo de placa
+        const byte MAX_OUTPUTS = 1;
+        const byte MAX_INPUTS = 1;
+    //    edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS] = {{}, };
+    #endif
+
+    #endif
+    */
+
     const byte MAX_SSID_WIFI = 4;
-    const unsigned int EEPROM_SIZE_DEFAULT = 1024;
+    const unsigned int EEPROM_SIZE_DEFAULT = 2560;
     const String default_websocketHost = "wss://open-community-safety.herokuapp.com/ws/device";
     const String default_deviceid = "00a0aa00-aa00-0000-0000-000000000000";
-    const byte MAX_OUTPUTS = 1;
 
     struct WifiParams
     {
@@ -86,11 +167,23 @@ namespace ocs
                 Serial.println(err.c_str());
 
                 EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT); // tamaño maximo 4096 bytes
-
+                // char default_json[2] = "{}";
                 unsigned int i = 0;
                 while (i < ocs::EEPROM_SIZE_DEFAULT)
                 {
-                    EEPROM.write(i, 255);
+                    if (i == 0)
+                    {
+                        EEPROM.write(i, '{');
+                    }
+                    else if (i == 1)
+                    {
+                        EEPROM.write(i, '}');
+                    }
+                    else
+                    {
+                        EEPROM.write(i, 255);
+                    }
+
                     i++;
                 }
                 EEPROM.commit();
@@ -98,64 +191,6 @@ namespace ocs
             }
 
             return doc;
-        }
-
-        /*
-                void loop()
-                {
-
-                    if (millis() - this->last_time > this->interval)
-                    {
-                        if (this->pendingChangesToSave)
-                        {
-                            this->save();
-                        }
-                    }
-                }
-        */
-
-#ifdef ESP32
-
-        bool removePreference(String key)
-        {
-            pref.begin(key.c_str(), false);
-            bool r = pref.remove(key.c_str());
-            pref.end();
-            return r;
-        }
-
-#elif defined(ESP8266)
-
-        bool removePreference(String key)
-        {
-            bool r = false;
-            return r;
-        }
-#endif
-
-#ifdef ESP32
-        bool setPreference(String key, String value)
-        {
-            Serial.println("setPreference: " + key + " = " + value);
-            //  Serial.println("setPreference: " + key);
-            bool r = false;
-            if (key.length() > 0)
-            {
-                pref.begin(key.c_str(), false);
-                if (pref.putString(key.c_str(), value) > 0)
-                {
-                    r = true;
-                }
-                pref.end();
-            }
-            return r;
-        }
-
-#elif defined(ESP8266)
-
-        void refreshData()
-        {
-            //            this->data = this->readData();
         }
 
         static bool save(DynamicJsonDocument doc)
@@ -186,67 +221,8 @@ namespace ocs
             r = EEPROM.commit();
             EEPROM.end();
 
-            /*
-                        if (this->pendingChangesToSave)
-                        {
-                            Serial.println("--> Save - Cambios pendientes ");
-                            String data_serialized = "";
-                            serializeJson(this->data, data_serialized);
-                            Serial.println(data_serialized);
-                            EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT);
-
-                            // Length (with one extra character for the null terminator)
-                            unsigned int str_len = data_serialized.length() + 1;
-
-                            // Prepare the character array (the buffer)
-                            char char_array[str_len];
-
-                            // Copy it over
-                            data_serialized.toCharArray(char_array, str_len);
-
-                            unsigned int i = 0;
-                            while (i < str_len)
-                            {
-                                EEPROM.write(i, char_array[i]);
-                                i++;
-                            }
-
-                            EEPROM.commit();
-                            EEPROM.end();
-                            //this->pendingChangesToSave = false;
-                            Serial.println("--> Save - Fin cambios pendientes ");
-                            this->refreshData();
-                        }
-                        */
             return r;
         }
-
-        bool setPreference(String key, String value)
-        {
-            Serial.println("setPreference: " + key + " = " + value);
-            //  Serial.println("setPreference: " + key);
-            bool r = false;
-            // https://github.com/esp8266/Arduino/blob/master/libraries/EEPROM/examples/eeprom_read/eeprom_read.ino
-
-            if (key.length() > 0)
-            {
-                Serial.println("setPreference - 1");
-                this->refreshData();
-                Serial.println("setPreference - 2");
-                /*
-                if (this->data[key] != value)
-                {
-                    Serial.println("setPreference - 3");
-                    r = true;
-                    this->data[key] = value;
-                    this->pendingChangesToSave = true;
-                    this->save();
-                }
-                */
-            }
-            return r;
-        }
-#endif
     };
 
     namespace input
@@ -273,6 +249,7 @@ namespace ocs
             Status last_status = Status::UNDEFINED;
 
         public:
+            bool enabled = false;
             Status status = Status::UNDEFINED;
             String name = "Physical Button";
             byte gpio = 255;
@@ -283,57 +260,67 @@ namespace ocs
                 doc["gpio"] = this->gpio;
                 doc["status"] = this->status;
                 doc["name"] = this->name;
-
+                doc["enabled"] = this->enabled;
                 return doc;
             }
 
             int getvalue()
             {
-                if (this->gpio != 255)
+                this->value = 0;
+                if (this->enabled)
                 {
+#ifdef ESP32
+                    if (this->gpio != 0)
+                    {
+                        this->value = analogRead(this->gpio); // read the input pin
+                    }
+                    else
+                    {
+                        Serial.println(F("En ESP32 no está permitido usar el GPIO como entrada."));
+                    }
+#elif defined(ESP8266)
                     this->value = analogRead(this->gpio); // read the input pin
-                }
-                else
-                {
-                    this->value = 0;
+#endif
                 }
                 return this->value;
             }
-            void setup(byte gpio_input, String name)
+            void setup(byte gpio_input, String name, bool enabled)
             {
+                Serial.print(F("Setup Input => "));
+                Serial.println(gpio_input);
                 this->name = name;
                 this->gpio = gpio_input;
+                this->enabled = enabled;
 
                 if (this->name == NULL || this->name.length() < 1)
                 {
                     this->name = "Input " + String(this->gpio);
                 }
 
-                if (this->gpio != 255)
+                if (this->enabled)
                 {
+
+#ifdef ESP32
+                    pinMode(0, OUTPUT);
+                    if (this->gpio != 0)
+                    {
+                        pinMode(this->gpio, INPUT);
+                    }
+                    else
+                    {
+                        Serial.println(F("En ESP32 no está permitido usar el GPIO como entrada."));
+                    }
+#elif defined(ESP8266)
                     pinMode(this->gpio, INPUT);
+#endif
                 }
             }
-            /*
-                        bool setName(String name)
-                        {
-                            this->name = name;
-                            return this->setPreference("input_" + String(this->gpio), name);
-                        }
-
-                        String getName()
-                        {
-                            String n = "input_" + String(this->gpio);
-                            this->name = this->getPreference(n, "Local GPIO " + String(this->gpio));
-                            return this->name;
-                        }
-                        */
 
             bool changed()
             {
                 bool Change = false;
 
-                if (this->gpio != 255 && millis() - last_time > interval)
+                if (this->enabled && millis() - last_time > interval)
                 {
 
                     this->last_time = millis();
@@ -341,8 +328,6 @@ namespace ocs
                     float upper_threshold = center + ((this->zone_threshold / 100) * center);
                     float lower_threshold = center - ((this->zone_threshold / 100) * center);
                     this->getvalue();
-
-                    // Serial.printf("up %f - low %f - center %f - value %i\n", upper_threshold, lower_threshold, center, this->value);
 
                     if (this->value <= lower_threshold)
                     {
@@ -373,18 +358,6 @@ namespace ocs
     };
 
     //    const byte MAX_SSID = 3;
-
-    struct InputConfig
-    {
-        String name;
-        byte gpio;
-    };
-
-    struct outputConfig
-    {
-        //        edwinspire::OutputPin output;
-        byte gpio;
-    };
 
     class Config
     {
@@ -447,24 +420,40 @@ namespace ocs
                 }
             }
 
+            for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
+            {
+                this->input[i].gpio = data["input"][i]["gpio"];
+                this->input[i].name = data["input"][i]["name"].as<String>();
+                this->input[i].enabled = data["input"][i]["enabled"].as<boolean>();
+            }
+
+            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
+            {
+                this->output[i].gpio = data["output"][i]["gpio"];
+                this->output[i].name = data["output"][i]["name"].as<String>();
+                this->output[i].enabled = data["output"][i]["enabled"].as<boolean>();
+            }
+
             this->deviceId = data["deviceId"].as<String>();
             this->caCert_fingerPrint = data["caCert_fingerPrint"].as<String>();
 
-            this->input->gpio = data["input"]["gpio"].as<byte>();
-            this->output->gpio = data["output"]["gpio"].as<byte>();
+            // this->input->gpio = data["input"]["gpio"].as<byte>();
+            // this->output->gpio = data["output"]["gpio"].as<byte>();
             this->setDefault();
         }
 
         DynamicJsonDocument toJson()
         {
             this->setDefault();
-            DynamicJsonDocument doc(2048);
-            doc["input01"] = this->input->gpio;
+            DynamicJsonDocument doc(4096);
+            // doc["input01"] = this->input->gpio;
             doc["deviceId"] = this->deviceId;
             doc["websocketHost"] = this->websocketHost;
             doc["latitude"] = this->latitude;
             doc["longitude"] = this->longitude;
             doc["MAX_SSID_WIFI"] = ocs::MAX_SSID_WIFI;
+            doc["ChipModel"] = ESP.getChipModel();
+            doc["EfuseMac"] = ESP.getEfuseMac();
 
             for (byte i = 0; i < ocs::MAX_SSID_WIFI; i = i + 1)
             {
@@ -481,13 +470,27 @@ namespace ocs
                 }
             }
 
+            for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
+            {
+                doc["input"][i]["gpio"] = this->input[i].gpio;
+                doc["input"][i]["name"] = this->input[i].name;
+                doc["input"][i]["enabled"] = this->input[i].enabled;
+            }
+
+            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
+            {
+                doc["output"][i]["gpio"] = this->output[i].gpio;
+                doc["output"][i]["name"] = this->output[i].name;
+                doc["output"][i]["enabled"] = this->output[i].enabled;
+            }
+
             doc["caCert_fingerPrint"] = this->caCert_fingerPrint;
 
             return doc;
         }
         String websocketHost;
         WifiParams wifi[ocs::MAX_SSID_WIFI];
-        InputConfig input[3];
+        InputConfig input[ocs::MAX_INPUTS];
         outputConfig output[ocs::MAX_OUTPUTS];
         String deviceId;
         String caCert_fingerPrint;
@@ -501,14 +504,14 @@ namespace ocs
     {
 
     public:
-        typedef Config (*delegateSetup)();
-        typedef void (*delegateSaveConfig)(ocs::Config);
+        //    typedef Config (*delegateSetup)();
+        //    typedef void (*delegateSaveConfig)(ocs::Config);
 
         Config ConfigParameter;
-        delegateSaveConfig hsave;
+        //  delegateSaveConfig hsave;
         // String websocketHost;
         //  String deviceId;
-        input::Input input01;
+        // input::Input input01;
 
         void setAlarm(ocs::AlarmType at)
         {
@@ -562,26 +565,30 @@ namespace ocs
                 this->outputs[i].loop();
             }
 
-            if (this->input01.changed())
+            for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
             {
-
-                if (this->input01.status == ocs::input::Status::ALARM)
+                if (this->inputs[i].changed())
                 {
-                    this->setAlarm(ocs::AlarmType::EMERGENCY);
+
+                    if (this->inputs[i].status == ocs::input::Status::ALARM)
+                    {
+                        this->setAlarm(ocs::AlarmType::EMERGENCY);
+                    }
+
+                    DynamicJsonDocument doc(256);
+                    doc["data"] = this->inputs[i].toJson();
+                    doc["event"] = "SZ"; // Change status GPIO
+
+                    this->wssend(doc);
                 }
-
-                DynamicJsonDocument doc(256);
-                doc["data"] = this->input01.toJson();
-                doc["event"] = "SZ"; // Change status GPIO
-
-                this->wssend(doc);
             }
         }
 
-        bool setFromJson(DynamicJsonDocument json)
+        DynamicJsonDocument setFromJson(DynamicJsonDocument json)
         {
             this->ConfigParameter.fromJson(json);
-            return this->ConfigParameter.saveLocalStorage();
+            this->ConfigParameter.saveLocalStorage();
+            return this->ConfigParameter.toJson();
         }
 
         DynamicJsonDocument toJson()
@@ -599,22 +606,8 @@ namespace ocs
 
         void begin()
         {
-
             ocsWebAdmin.begin();
         }
-
-        /*
-                void setup(delegateSetup handlerSetup)
-                {
-                    this->setup(handlerSetup());
-                }
-
-                void setup(delegateSetup handlerSetup, delegateSaveConfig handlerSave)
-                {
-                    this->hsave = handlerSave;
-                    this->setup(handlerSetup);
-                }
-                */
 
         void setup()
         {
@@ -625,13 +618,19 @@ namespace ocs
 
         void setup(ocs::Config config)
         {
-
+            Serial.println(F("Setup OCS"));
             ocsWebAdmin.on("/getsettings", [&](AsyncWebServerRequest *request)
                            {
             String outputJson = "";
             serializeJson(this->toJson(), outputJson);
             Serial.println(outputJson);
             request->send(200, F("application/json"), outputJson); });
+
+            ocsWebAdmin.on("/reboot", [&](AsyncWebServerRequest *request)
+                           {  
+            request->send(200, F("application/json"), "{\"ESP\": \"Restarting...\"}"); 
+            ESP.restart(); });
+
             // ocsWebAdmin.on("/setsettings", HTTP_POST, onRequest, onUpload, setSettings);
             ocsWebAdmin.addHandler(this->handlerBody); // Para poder leer el body enviado en el request
 
@@ -640,24 +639,28 @@ namespace ocs
 
             this->ConfigParameter = config;
 
-#ifdef ESP32
-            this->wsclient.setcaCert_fingerPrint_fingerPrint_fingerPrint(ssl_ca_cert);
-#elif defined(ESP8266)
-            // Serial.println(this->ConfigParameter.caCert_fingerPrint);
             if (this->ConfigParameter.websocketHost.startsWith("wss"))
             {
-                this->wsclient.setFingerprint(this->ConfigParameter.caCert_fingerPrint.c_str());
-            }
-#endif
 
-            this->input01.setup(this->ConfigParameter.input->gpio, this->ConfigParameter.input->name);
+#ifdef ESP32
+                this->wsclient.setCACert(this->ConfigParameter.caCert_fingerPrint.c_str());
+#elif defined(ESP8266)
+                this->wsclient.setFingerprint(this->ConfigParameter.caCert_fingerPrint.c_str());
+#endif
+            }
+
+            //            this->input01.setup(this->ConfigParameter.input->gpio, this->ConfigParameter.input->name);
+            for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
+            {
+                this->inputs[i].setup(this->ConfigParameter.input[i].gpio, this->ConfigParameter.input[i].name, this->ConfigParameter.input[i].enabled);
+            }
 
             for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
             {
 
                 if (this->ConfigParameter.output[i].gpio != 255)
                 {
-                    this->outputs[i].setup(this->ConfigParameter.output[i].gpio);
+                    this->outputs[i].setup(this->ConfigParameter.output[i].gpio, this->ConfigParameter.output[i].enabled);
                 }
             }
 
@@ -686,17 +689,17 @@ namespace ocs
                                              {
                                              case 1: // Set Alarm
                                              {
-                                                Serial.println("SET ALARM...");
+                                                Serial.println(F("SET ALARM..."));
                                                  Serial.println(doc["alarm_type"].as<const char *>());
                                                  ocs::AlarmType alarm_type = doc["alarm_type"];
                                                  this->setAlarm(alarm_type);
                                              }
                                              break;
                                              case 1000:
-                                                 Serial.println("Reasignar UUID");
+//                                                 Serial.println("Reasignar UUID");
                                                  //String dev_Id = doc["deviceid"];
                                                  this->ConfigParameter.deviceId = doc["deviceId"].as<String>();
-                                                 Serial.println("Reasignada UUID");
+ //                                                Serial.println("Reasignada UUID");
                                                  //this->setDefaultValues();
                                                  Serial.println("seteada UUID");
 
@@ -754,21 +757,15 @@ this->ConfigParameter.saveLocalStorage();
 
         WebsocketsClient wsclient;
         edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS];
+        ocs::input::Input inputs[ocs::MAX_INPUTS];
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
 
         AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettings", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                    {
-this->setFromJson(json);
-    request->send(200, F("application/json"), "{}"); });
-        /*
-                void getSettings(AsyncWebServerRequest *request)
-                {
-                    String outputJson = "";
-                    serializeJson(ocsClass.toJson(), outputJson);
-                    Serial.println(outputJson);
-                    request->send(200, F("application/json"), outputJson);
-                }
-                */
+String r = "";
+ serializeJson(this->setFromJson(json), r);
+
+    request->send(200, F("application/json"), r); });
     };
 }
