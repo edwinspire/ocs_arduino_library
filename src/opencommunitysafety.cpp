@@ -452,9 +452,18 @@ namespace ocs
             doc["latitude"] = this->latitude;
             doc["longitude"] = this->longitude;
             doc["MAX_SSID_WIFI"] = ocs::MAX_SSID_WIFI;
+
+#ifdef ESP32
             doc["ChipModel"] = ESP.getChipModel();
             doc["EfuseMac"] = String(ESP.getEfuseMac(), HEX);
             doc["ChipRevision"] = ESP.getChipRevision();
+
+#elif defined(ESP8266)
+            doc["ChipModel"] = ESP.getChipId();
+            doc["EfuseMac"] = "1a2b3c4d";
+            doc["ChipRevision"] = ESP.getCoreVersion();
+
+#endif
 
             for (byte i = 0; i < ocs::MAX_SSID_WIFI; i = i + 1)
             {
@@ -579,9 +588,9 @@ namespace ocs
                     DynamicJsonDocument doc(256);
                     doc["data"] = this->inputs[i].toJson();
                     doc["event"] = "SZ"; // Change status GPIO
-                    doc["latitude"] = this->ConfigParameter.latitude; 
-                    doc["longitude"] = this->ConfigParameter.longitude; 
-                    doc["deviceId"] = this->ConfigParameter.deviceId; 
+                    doc["latitude"] = this->ConfigParameter.latitude;
+                    doc["longitude"] = this->ConfigParameter.longitude;
+                    doc["deviceId"] = this->ConfigParameter.deviceId;
                     this->wssend(doc);
                 }
             }
