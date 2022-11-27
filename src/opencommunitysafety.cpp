@@ -16,7 +16,7 @@ namespace ocs
     const byte MAX_SSID_WIFI = 4;
     const String default_websocketHost = "wss://open-community-safety.herokuapp.com/ws/device";
     const String default_deviceid = "00a0aa00-aa00-0000-0000-000000000000";
-    const byte MAX_TELEGRAM_GROUPS = 3;
+    //    const byte MAX_TELEGRAM_GROUPS = 3;
     const byte MAX_OUTPUTS = 1;
     const byte MAX_INPUTS = 1;
 
@@ -46,24 +46,6 @@ namespace ocs
         }
     };
 
-    /*
-        struct InputConfig
-        {
-            String name = "";
-            byte gpio = 255;
-            bool enabled = false;
-
-            DynamicJsonDocument toJson()
-            {
-                DynamicJsonDocument doc(32);
-                doc["gpio"] = this->gpio;
-                doc["enabled"] = this->enabled;
-                doc["name"] = this->name;
-                return doc;
-            }
-        };
-        */
-
     struct outputConfig
     {
         //        edwinspire::OutputPin output;
@@ -74,8 +56,6 @@ namespace ocs
         void fromJson(DynamicJsonDocument data)
         {
 
-            //   Serial.println(">>>< outputConfig Configure from JSON");
-            //   serializeJsonPretty(data, Serial);
             this->enabled = data["enabled"].as<boolean>();
             this->name = data["name"].as<String>();
             this->gpio = data["gpio"].as<byte>();
@@ -90,74 +70,6 @@ namespace ocs
             return doc;
         }
     };
-
-    /*
-    #ifdef ESP32
-
-    #if defined(ESP_BOARD)
-
-    #if ESP_BOARD == "ESP32_DEVKIT_V1_DOIT"
-        const byte MAX_OUTPUTS = 1;
-        const byte MAX_INPUTS = 1;
-        ocs::outputConfig default_outputs[MAX_OUTPUTS] = {{.gpio = 21, .name = "GPIO 21"}};
-        ocs::outputConfig default_inputs[MAX_INPUTS] = {{.gpio = 23, .name = "GPIO 23"}};
-    #elif ESP_BOARD == "ESP32_DEVKITC_V4"
-        const byte MAX_OUTPUTS = 1;
-        const byte MAX_INPUTS = 1;
-        ocs::outputConfig default_outputs[MAX_OUTPUTS] = {{.gpio = 21, .name = "GPIO 21"}};
-        ocs::outputConfig default_inputs[MAX_INPUTS] = {{.gpio = 23, .name = "GPIO 23"}};
-    #else
-        const byte MAX_OUTPUTS = 1;
-        const byte MAX_INPUTS = 1;
-        ocs::outputConfig default_outputs[MAX_OUTPUTS] = {{.gpio = 21, .name = "GPIO 21"}};
-        ocs::outputConfig default_inputs[MAX_INPUTS] = {{.gpio = 23, .name = "GPIO 23"}};
-    #endif
-
-    #else
-        const byte MAX_OUTPUTS = 1;
-        const byte MAX_INPUTS = 1;
-
-        outputConfig *default_outputs()
-        {
-            static outputConfig r[MAX_OUTPUTS];
-            r[0] = { .gpio = 21, .name = "GPIO 21"}
-
-            return r;
-        };
-        InputConfig *default_inputs()
-        {
-            static InputConfig r[MAX_INPUTS];
-            r[0] = {.gpio = 23, .name = "GPIO 23"};
-
-            return r;
-        };
-    #endif
-
-    #elif defined(ESP8266)
-
-    #if defined(ESP_BOARD)
-
-    #if ESP_BOARD == "ESP-01S"
-        const byte MAX_OUTPUTS = 1;
-        const byte MAX_INPUTS = 1;
-
-    #elif ESP_BOARD == "ESP8266"
-        const byte MAX_OUTPUTS = 1;
-        const byte MAX_INPUTS = 1;
-    #else
-        const byte MAX_OUTPUTS = 1;
-        const byte MAX_INPUTS = 1;
-    #endif
-
-    #else
-        // No ha definido el modelo de placa
-        const byte MAX_OUTPUTS = 1;
-        const byte MAX_INPUTS = 1;
-    //    edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS] = {{}, };
-    #endif
-
-    #endif
-    */
 
     struct WifiParams
     {
@@ -174,23 +86,6 @@ namespace ocs
     };
 
     const WifiParams default_wifi = {.ssid = "accesspoint", .pwd = "123456@qwert"};
-    /*
-        enum StatusAlarm
-        {
-            ALARM,
-            NORMAL
-        };
-        */
-
-    /* enum AlarmType
-    {
-        OFF,
-        EMERGENCY,
-        PULSE,
-        TEST
-    };
- */
-    //    const byte MAX_SSID = 3;
 
     class Config
     {
@@ -265,27 +160,26 @@ namespace ocs
             for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
             {
                 this->output[i].fromJson(data["o"][i]);
-                /* this->output[i].gpio = data["o"][i]["gpio"];
-                this->output[i].name = data["o"][i]["name"].as<String>();
-                this->output[i].enabled = data["o"][i]["enabled"].as<boolean>(); */
             }
 
-            for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
-            {
-                this->telegramGroups[i].enabled = data["tg"][i]["enabled"].as<boolean>();
-                this->telegramGroups[i].id = data["tg"][i]["id"].as<String>();
-                this->telegramGroups[i].name = data["tg"][i]["name"].as<String>();
+            /*
+                        for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
+                        {
+                            this->telegramGroups[i].enabled = data["tg"][i]["enabled"].as<boolean>();
+                            this->telegramGroups[i].id = data["tg"][i]["id"].as<String>();
+                            this->telegramGroups[i].name = data["tg"][i]["name"].as<String>();
 
-                if (this->telegramGroups[i].id == NULL)
-                {
-                    this->telegramGroups[i].id = "";
-                }
+                            if (this->telegramGroups[i].id == NULL)
+                            {
+                                this->telegramGroups[i].id = "";
+                            }
 
-                if (this->telegramGroups[i].name == NULL)
-                {
-                    this->telegramGroups[i].name = "";
-                }
-            }
+                            if (this->telegramGroups[i].name == NULL)
+                            {
+                                this->telegramGroups[i].name = "";
+                            }
+                        }
+                        */
 
             this->deviceId = data["deviceId"].as<String>();
             this->caCert_fingerPrint = data["cfp"].as<String>();
@@ -341,10 +235,12 @@ namespace ocs
                 doc["o"][i] = this->output[i].toJson();
             }
 
-            for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
-            {
-                doc["tg"][i] = this->telegramGroups[i].toJson();
-            }
+            /*
+                        for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
+                        {
+                            doc["tg"][i] = this->telegramGroups[i].toJson();
+                        }
+                        */
 
             doc["cfp"] = this->caCert_fingerPrint;
             doc["acbgl"] = this->allowActivationByGeolocation;
@@ -357,7 +253,7 @@ namespace ocs
         WifiParams wifi[ocs::MAX_SSID_WIFI];
         input::Configure input[ocs::MAX_INPUTS];
         outputConfig output[ocs::MAX_OUTPUTS];
-        telegramGroupConfig telegramGroups[ocs::MAX_TELEGRAM_GROUPS];
+        // telegramGroupConfig telegramGroups[ocs::MAX_TELEGRAM_GROUPS];
         String deviceId;
         String caCert_fingerPrint;
         String latitude;
@@ -443,13 +339,13 @@ namespace ocs
                     doc["event"]["allowActivationByGeolocation"] = this->ConfigParameter.allowActivationByGeolocation;
                     doc["event"]["deviceId"] = this->ConfigParameter.deviceId;
 
-                    for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
+                    /* for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
                     {
                         if (this->ConfigParameter.telegramGroups[i].enabled)
                         {
                             doc["event"]["tg"][i] = this->ConfigParameter.telegramGroups[i].toJson();
                         }
-                    }
+                    } */
 
                     this->wssend(doc);
                 }
@@ -547,7 +443,7 @@ namespace ocs
                                          Serial.print(F("Got Message: "));
                                          Serial.println(message.data());
 
-                                         StaticJsonDocument<512> doc;
+                                         DynamicJsonDocument doc(250);
                                          DeserializationError error = deserializeJson(doc, message.data());
 
                                          // Test if parsing succeeds.
@@ -559,28 +455,13 @@ namespace ocs
                                          else
                                          {
 
-                                             // Serial.println(doc["command"]);
-                                             unsigned int command = doc["command"];
 
-                                             switch (command)
-                                             {
-                                             case 1: // Set Alarm
-                                             {
-                                                Serial.println(F("SET ALARM..."));
-                                                 Serial.println(doc["siren_type"].as<const char *>());
-                                                 ocs::input::SirenType siren_type = doc["siren_type"];
-                                                 this->setAlarm(siren_type);
-                                             }
-                                             break;
-                                             case 1000: // Set deviceId
-                                                 this->ConfigParameter.deviceId = doc["deviceId"].as<String>();
-                                                 Serial.println(F("seteada UUID"));
-                                                  this->ConfigParameter.saveLocalStorage();
-  //                                               this->wssend(this->ConfigParameter.toJson());
-                                                 
-                                                 break;
-                                                 
-                                             }
+if(!doc["command"].isNull()){
+this->onwsCommand(doc);
+}else if(!doc["request"].isNull()){
+this->onwsRequest(doc);
+}
+
                                          } });
 
             this->wsclient.onEvent([&](WebsocketsEvent event, String data) -> void
@@ -641,6 +522,48 @@ namespace ocs
         ocs::input::Input inputs[ocs::MAX_INPUTS];
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
+
+        void onwsCommand(DynamicJsonDocument doc)
+        {
+            unsigned int command = doc["command"];
+
+            switch (command)
+            {
+            case 1: // Set Alarm
+            {
+                Serial.println(F("SET ALARM..."));
+                Serial.println(doc["siren_type"].as<const char *>());
+                ocs::input::SirenType siren_type = doc["siren_type"];
+                this->setAlarm(siren_type);
+            }
+            break;
+            case 1000: // Set deviceId
+                this->ConfigParameter.deviceId = doc["deviceId"].as<String>();
+                Serial.println(F("seteada UUID"));
+                this->ConfigParameter.saveLocalStorage();
+                break;
+            }
+        }
+
+        void onwsRequest(DynamicJsonDocument doc)
+        {
+            unsigned int command = doc["request"];
+
+            switch (command)
+            {
+            case 1000: // Requiere datos de configuración
+            {
+                Serial.println(F("Response configuration ..."));
+                DynamicJsonDocument doc(4096);
+                doc["response"] = 1000;
+                doc["data"] = this->toJson();
+                String outputJson = "";
+                serializeJson(doc, outputJson);
+                this->wsclient.send(outputJson);
+            }
+            break;
+            }
+        }
 
         AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettings", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                    {
