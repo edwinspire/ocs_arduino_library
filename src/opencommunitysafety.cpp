@@ -272,7 +272,7 @@ namespace ocs
         void setAlarm(ocs::input::SirenType at)
         {
 
-            Serial.println("Entra en setAlarm");
+            Serial.println("Entra en setAlarm "+String(at));
 
             for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
             {
