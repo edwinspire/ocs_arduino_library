@@ -43,7 +43,7 @@ namespace ocs
 
         struct Configure
         {
-            Type type;
+            Type type = Type::NONE;
             SirenType siren_type = SirenType::UNABLED;
             boolean enabled = false;
 
@@ -60,6 +60,8 @@ namespace ocs
                 doc["enabled"] = this->enabled;
                 doc["name"] = this->name;
                 doc["gpio"] = this->gpio;
+                Serial.println(F("Input Configure toJson"));
+                serializeJsonPretty(doc, Serial);
                 return doc;
             }
 
@@ -110,12 +112,11 @@ namespace ocs
             DynamicJsonDocument toJson()
             {
                 DynamicJsonDocument doc(256);
-                // doc["gpio"] = this->gpio;
+                doc["config"] = this->config.toJson();
                 doc["status"] = this->status;
                 doc["value"] = this->getvalue();
-                // doc["enabled"] = this->enabled;
-                doc["config"] = this->config.toJson();
-
+                Serial.println(F("Input toJson => "));
+                serializeJsonPretty(doc, Serial);
                 return doc;
             }
 
@@ -142,10 +143,10 @@ namespace ocs
 
             void setup(Configure conf)
             {
-                this->setup(conf.gpio, conf.name, conf.enabled, conf.type, conf.siren_type);
+                this->setup(conf.gpio, conf.name, conf.enabled, conf.type, conf.siren_type, conf.contact_type);
             }
 
-            void setup(byte gpio_input, String name, bool enabled, Type type, SirenType siren_type)
+            void setup(byte gpio_input, String name, bool enabled, Type type, SirenType siren_type, ContactType contact_type)
             {
                 Serial.print(F("Setup Input => "));
                 Serial.println(gpio_input);
@@ -157,6 +158,9 @@ namespace ocs
                 this->config.name = name;
                 this->config.gpio = gpio_input;
                 this->config.enabled = enabled;
+                this->config.type = type;
+                this->config.siren_type = siren_type;
+                this->config.contact_type = contact_type;
 
                 if (this->config.name == NULL || this->config.name.length() < 1)
                 {

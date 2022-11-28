@@ -331,21 +331,16 @@ namespace ocs
                         this->setAlarm(ocs::input::SirenType::CONTINUOUS);
                     }
 
-                    DynamicJsonDocument doc(512);
+                    DynamicJsonDocument doc(1024);
 
+                    doc["event"]["deviceId"] = this->ConfigParameter.deviceId;
                     doc["event"]["input"] = this->inputs[i].toJson();
                     doc["event"]["latitude"] = this->ConfigParameter.latitude;
                     doc["event"]["longitude"] = this->ConfigParameter.longitude;
                     doc["event"]["allowActivationByGeolocation"] = this->ConfigParameter.allowActivationByGeolocation;
-                    doc["event"]["deviceId"] = this->ConfigParameter.deviceId;
 
-                    /* for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
-                    {
-                        if (this->ConfigParameter.telegramGroups[i].enabled)
-                        {
-                            doc["event"]["tg"][i] = this->ConfigParameter.telegramGroups[i].toJson();
-                        }
-                    } */
+                   // Serial.println(F("this->inputs[i].changed() => "));
+                   // serializeJsonPretty(doc, Serial);
 
                     this->wssend(doc);
                 }
@@ -368,7 +363,8 @@ namespace ocs
         {
             String outputJson = "";
             serializeJson(json_doc, outputJson);
-            Serial.println(outputJson);
+          //  Serial.println(F("wssend >= "));
+          //  serializeJsonPretty(json_doc, Serial);
             this->wsclient.send(outputJson);
         }
 
