@@ -20,32 +20,33 @@ namespace ocs
     const byte MAX_OUTPUTS = 1;
     const byte MAX_INPUTS = 1;
 
-    struct telegramGroupConfig
-    {
-        String id = "";
-        bool enabled = false;
-        String name = "";
-        DynamicJsonDocument toJson()
+    /*
+        struct telegramGroupConfig
         {
-            if (this->name == NULL)
+            String id = "";
+            bool enabled = false;
+            String name = "";
+            DynamicJsonDocument toJson()
             {
-                this->name = "";
+                if (this->name == NULL)
+                {
+                    this->name = "";
+                }
+
+                if (this->id == NULL)
+                {
+                    this->id = "";
+                }
+
+                DynamicJsonDocument doc(128);
+                doc["id"] = this->id;
+                doc["enabled"] = this->enabled;
+                doc["name"] = this->name;
+
+                return doc;
             }
-
-            if (this->id == NULL)
-            {
-                this->id = "";
-            }
-
-            DynamicJsonDocument doc(128);
-            doc["id"] = this->id;
-            doc["enabled"] = this->enabled;
-            doc["name"] = this->name;
-
-            return doc;
-        }
-    };
-
+        };
+    */
     struct outputConfig
     {
         //        edwinspire::OutputPin output;
@@ -180,7 +181,7 @@ namespace ocs
                             }
                         }
                         */
-
+            this->name = data["name"].as<String>();
             this->deviceId = data["deviceId"].as<String>();
             this->caCert_fingerPrint = data["cfp"].as<String>();
             this->allowActivationByGeolocation = data["acbgl"].as<boolean>();
@@ -244,6 +245,7 @@ namespace ocs
 
             doc["cfp"] = this->caCert_fingerPrint;
             doc["acbgl"] = this->allowActivationByGeolocation;
+            doc["name"] = this->name;
 
             // Serial.println("Config toJson:");
             // serializeJsonPretty(doc, Serial);
@@ -258,6 +260,7 @@ namespace ocs
         String caCert_fingerPrint;
         String latitude;
         String longitude;
+        String name;
         bool allowActivationByGeolocation = false;
         // byte MAX_SSID_WIFI;
         String websocketHostRequest;
@@ -272,7 +275,7 @@ namespace ocs
         void setAlarm(ocs::input::SirenType at)
         {
 
-            Serial.println("Entra en setAlarm "+String(at));
+            Serial.println("Entra en setAlarm " + String(at));
 
             for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
             {
@@ -339,8 +342,8 @@ namespace ocs
                     doc["event"]["longitude"] = this->ConfigParameter.longitude;
                     doc["event"]["allowActivationByGeolocation"] = this->ConfigParameter.allowActivationByGeolocation;
 
-                   // Serial.println(F("this->inputs[i].changed() => "));
-                   // serializeJsonPretty(doc, Serial);
+                    // Serial.println(F("this->inputs[i].changed() => "));
+                    // serializeJsonPretty(doc, Serial);
 
                     this->wssend(doc);
                 }
@@ -363,8 +366,8 @@ namespace ocs
         {
             String outputJson = "";
             serializeJson(json_doc, outputJson);
-          //  Serial.println(F("wssend >= "));
-          //  serializeJsonPretty(json_doc, Serial);
+            //  Serial.println(F("wssend >= "));
+            //  serializeJsonPretty(json_doc, Serial);
             this->wsclient.send(outputJson);
         }
 
