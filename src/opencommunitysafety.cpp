@@ -205,8 +205,8 @@ namespace ocs
             doc["EfuseMac"] = String(ESP.getEfuseMac(), HEX);
             doc["ChipRevision"] = ESP.getChipRevision();
 #elif defined(ESP8266)
-            doc["ChipModel"] = ESP.getChipId();
-            doc["EfuseMac"] = "1a2b3c4d";
+            doc["ChipModel"] = String(ESP.getChipId(), HEX);
+            doc["EfuseMac"] = String(ESP.getFlashChipId(), HEX);
             doc["ChipRevision"] = ESP.getCoreVersion();
 
 #endif

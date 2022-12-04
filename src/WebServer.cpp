@@ -50,12 +50,11 @@ namespace ocs
         void setup()
         {
 
-            // Initialize LittleFS
-            if (!LittleFS.begin())
-            {
-                Serial.println("An Error has occurred while mounting LittleFS");
-                // return;
-            }
+       if (!LittleFS.begin())
+                {
+                    Serial.println("An Error has occurred while mounting LittleFS");
+                }
+         
 
             this->on("/", HTTP_GET, [&](AsyncWebServerRequest *request)
                      { request->send(LittleFS, F("/index.html"), F("text/html")); });
@@ -72,5 +71,5 @@ namespace ocs
 #endif
 
     private:
-        };
+    };
 }
