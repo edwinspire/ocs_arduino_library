@@ -448,6 +448,7 @@ namespace ocs
                 if (this->ConfigParameter.output[i].gpio != 255)
                 {
                     this->outputs[i].setup(this->ConfigParameter.output[i].gpio, this->ConfigParameter.output[i].enabled);
+                    this->outputs[i].low();
                 }
             }
 
