@@ -376,6 +376,19 @@ namespace ocs
             ocsWebAdmin.begin();
         }
 
+        void reboot()
+        {
+
+
+#ifdef ESP32
+            ESP.restart();
+#elif defined(ESP8266)
+          ESP.wdtDisable();
+            wdt_reset();
+            ESP.restart();
+#endif
+        }
+
         void setup()
         {
             ocs::Config c;
@@ -403,7 +416,9 @@ namespace ocs
             ocsWebAdmin.on("/reboot", [&](AsyncWebServerRequest *request)
                            {  
             request->send(200, F("application/json"), "{\"ESP\": \"Restarting...\"}"); 
-            ESP.restart(); });
+            this->reboot();
+            //ESP.restart(); 
+            });
 
             ocsWebAdmin.addHandler(this->handlerBody); // Para poder leer el body enviado en el request
             ocsWebAdmin.setup();
