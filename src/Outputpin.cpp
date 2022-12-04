@@ -14,7 +14,7 @@ namespace edwinspire
     {
 
     public:
-                OutputPin()
+        OutputPin()
         {
             // Without inicialized
             this->_outputPin = 255;
@@ -25,7 +25,14 @@ namespace edwinspire
         }
         void setup(byte gpio, bool enabled)
         {
-            Serial.println(F("Setup Output pin "));
+            Serial.print(F("Setup Output pin: "));
+            Serial.println(gpio);
+
+            if (this->_outputPin == 255)
+            {
+                this->enabled = false;
+            }
+
             this->enabled = enabled;
             this->_outputPin = gpio;
             this->_outputState = LOW;
@@ -67,6 +74,7 @@ namespace edwinspire
 
         void blink(unsigned long lowTime, unsigned long highTime, unsigned long delayTime, long blinkTimes)
         {
+            //this->low();
             this->_highTime = highTime;
             this->_lowTime = lowTime;
             this->_startTime = delayTime;
@@ -77,7 +85,8 @@ namespace edwinspire
                 this->_blinkState = BlinkState::DELAY;
                 this->_lastBlinkTime = millis();
             }
-            Serial.println("Set BLINK Output pin ");
+            //Serial.print(F("Set BLINK Output pin: "));
+            //Serial.println(this->_outputPin);
         }
 
         void blink(unsigned long lowTime, unsigned long highTime, unsigned long delayTime)
@@ -97,6 +106,9 @@ namespace edwinspire
 
         void loop(void)
         {
+            //Serial.println("Enabled: " + String(this->enabled));
+            //Serial.println("_blinkState: " + String(this->_blinkState));
+            //Serial.println("_blinkTimes: " + String(this->_blinkTimes));
             if (this->enabled)
             {
                 bool isBlink = false;

@@ -60,8 +60,8 @@ namespace ocs
                 doc["enabled"] = this->enabled;
                 doc["name"] = this->name;
                 doc["gpio"] = this->gpio;
-                Serial.println(F("Input Configure toJson"));
-                serializeJsonPretty(doc, Serial);
+               // Serial.println(F("Input Configure toJson"));
+                //serializeJsonPretty(doc, Serial);
                 return doc;
             }
 
@@ -115,8 +115,8 @@ namespace ocs
                 doc["config"] = this->config.toJson();
                 doc["status"] = this->status;
                 doc["value"] = this->getvalue();
-                Serial.println(F("Input toJson => "));
-                serializeJsonPretty(doc, Serial);
+                //Serial.println(F("Input toJson => "));
+                //serializeJsonPretty(doc, Serial);
                 return doc;
             }
 

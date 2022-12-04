@@ -20,33 +20,6 @@ namespace ocs
     const byte MAX_OUTPUTS = 1;
     const byte MAX_INPUTS = 1;
 
-    /*
-        struct telegramGroupConfig
-        {
-            String id = "";
-            bool enabled = false;
-            String name = "";
-            DynamicJsonDocument toJson()
-            {
-                if (this->name == NULL)
-                {
-                    this->name = "";
-                }
-
-                if (this->id == NULL)
-                {
-                    this->id = "";
-                }
-
-                DynamicJsonDocument doc(128);
-                doc["id"] = this->id;
-                doc["enabled"] = this->enabled;
-                doc["name"] = this->name;
-
-                return doc;
-            }
-        };
-    */
     struct outputConfig
     {
         //        edwinspire::OutputPin output;
@@ -132,10 +105,8 @@ namespace ocs
         void fromJson(DynamicJsonDocument data)
         {
 
-            // Serial.println("fromJson >>>> ");
-            // serializeJsonPretty(data, Serial);
-
             this->websocketHost = data["wsHost"].as<String>();
+            this->led = data["led"].as<byte>();
 
             for (byte i = 0; i < ocs::MAX_SSID_WIFI; i = i + 1)
             {
@@ -163,29 +134,12 @@ namespace ocs
                 this->output[i].fromJson(data["o"][i]);
             }
 
-            /*
-                        for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
-                        {
-                            this->telegramGroups[i].enabled = data["tg"][i]["enabled"].as<boolean>();
-                            this->telegramGroups[i].id = data["tg"][i]["id"].as<String>();
-                            this->telegramGroups[i].name = data["tg"][i]["name"].as<String>();
-
-                            if (this->telegramGroups[i].id == NULL)
-                            {
-                                this->telegramGroups[i].id = "";
-                            }
-
-                            if (this->telegramGroups[i].name == NULL)
-                            {
-                                this->telegramGroups[i].name = "";
-                            }
-                        }
-                        */
             this->name = data["name"].as<String>();
             this->deviceId = data["deviceId"].as<String>();
             this->caCert_fingerPrint = data["cfp"].as<String>();
             this->allowActivationByGeolocation = data["acbgl"].as<boolean>();
-
+            this->latitude = data["latitude"].as<String>();
+            this->longitude = data["latitude"].as<String>();
             this->setDefault();
         }
 
@@ -236,33 +190,25 @@ namespace ocs
                 doc["o"][i] = this->output[i].toJson();
             }
 
-            /*
-                        for (byte i = 0; i < ocs::MAX_TELEGRAM_GROUPS; i = i + 1)
-                        {
-                            doc["tg"][i] = this->telegramGroups[i].toJson();
-                        }
-                        */
-
             doc["cfp"] = this->caCert_fingerPrint;
             doc["acbgl"] = this->allowActivationByGeolocation;
             doc["name"] = this->name;
+            doc["led"] = this->led;
 
-            // Serial.println("Config toJson:");
-            // serializeJsonPretty(doc, Serial);
             return doc;
         }
+
         String websocketHost;
         WifiParams wifi[ocs::MAX_SSID_WIFI];
         input::Configure input[ocs::MAX_INPUTS];
         outputConfig output[ocs::MAX_OUTPUTS];
-        // telegramGroupConfig telegramGroups[ocs::MAX_TELEGRAM_GROUPS];
+        byte led = 255; // Led GPIO
         String deviceId;
         String caCert_fingerPrint;
         String latitude;
         String longitude;
         String name;
         bool allowActivationByGeolocation = false;
-        // byte MAX_SSID_WIFI;
         String websocketHostRequest;
     };
 
@@ -310,6 +256,7 @@ namespace ocs
                 {
                     this->wsclient.ping();
                     this->last_time_ws_ping = millis();
+                    this->led.blink(1500, 1000, 500, 10);
                 }
             }
             else
@@ -323,6 +270,8 @@ namespace ocs
             {
                 this->outputs[i].loop();
             }
+
+            this->led.loop();
 
             for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
             {
@@ -379,11 +328,10 @@ namespace ocs
         void reboot()
         {
 
-
 #ifdef ESP32
             ESP.restart();
 #elif defined(ESP8266)
-          ESP.wdtDisable();
+            ESP.wdtDisable();
             wdt_reset();
             ESP.restart();
 #endif
@@ -414,11 +362,9 @@ namespace ocs
             request->send(200, F("application/json"), outputJson); });
 
             ocsWebAdmin.on("/reboot", [&](AsyncWebServerRequest *request)
-                           {  
-            request->send(200, F("application/json"), "{\"ESP\": \"Restarting...\"}"); 
-            this->reboot();
-            //ESP.restart(); 
-            });
+                           {
+                               request->send(200, F("application/json"), "{\"ESP\": \"Restarting...\"}");
+                               this->reboot(); });
 
             ocsWebAdmin.addHandler(this->handlerBody); // Para poder leer el body enviado en el request
             ocsWebAdmin.setup();
@@ -457,7 +403,7 @@ namespace ocs
                                      {
                                          Serial.print(F("Got Message: "));
                                          Serial.println(message.data());
-
+                                         this->ledBlinkOnWs();       
                                          DynamicJsonDocument doc(250);
                                          DeserializationError error = deserializeJson(doc, message.data());
 
@@ -481,6 +427,7 @@ this->onwsRequest(doc);
 
             this->wsclient.onEvent([&](WebsocketsEvent event, String data) -> void
                                    {
+                                    this->ledBlinkOnWs();
     if (event == WebsocketsEvent::ConnectionOpened)
     {
         Serial.println(F("Connnection Opened"));
@@ -498,6 +445,19 @@ this->onwsRequest(doc);
     {
         Serial.println(F("Got a Pong!"));
     } });
+
+            this->led.setup(this->ConfigParameter.led, true);
+            this->led.high();
+            delay(800);
+            this->led.low();
+            delay(400);
+            this->led.high();
+            delay(800);
+            this->led.low();
+            delay(400);
+            this->led.high();
+            delay(800);
+            this->led.low();
         }
 
         void connectWS()
@@ -534,9 +494,17 @@ this->onwsRequest(doc);
     private:
         WebsocketsClient wsclient;
         edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS];
+        edwinspire::OutputPin led;
         ocs::input::Input inputs[ocs::MAX_INPUTS];
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
+
+        void ledBlinkOnWs()
+        {
+            this->led.low();
+            this->led.blink(350, 450, 100, 81);
+                                //this->outputs[i].blink(2000, 1500, 0, 4); // 1500 milliseconds ON, 2000 milliseconds OFF, start immidiately, blink 10 times (5 times OFF->ON, 5 times ON->OFF, interleavedly)
+        }
 
         void onwsCommand(DynamicJsonDocument doc)
         {
@@ -582,8 +550,8 @@ this->onwsRequest(doc);
 
         AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettings", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                    {
-String r = "";
- serializeJson(this->setFromJson(json), r);
-    request->send(200, F("application/json"), r); });
+                String r = "";
+                serializeJson(this->setFromJson(json), r);
+                request->send(200, F("application/json"), r); });
     };
 }
