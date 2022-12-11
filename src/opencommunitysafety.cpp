@@ -18,7 +18,7 @@ namespace ocs
     const String default_deviceid = "00a0aa00-aa00-0000-0000-000000000000";
     //    const byte MAX_TELEGRAM_GROUPS = 3;
     const byte MAX_OUTPUTS = 1;
-    const byte MAX_INPUTS = 1;
+    const byte MAX_INPUTS = 6;
 
     struct outputConfig
     {
@@ -212,6 +212,13 @@ namespace ocs
         String websocketHostRequest;
     };
 
+    struct bodyData
+    {
+        uint8_t *data;
+        size_t len;
+        size_t index;
+    };
+
     class OpenCommunitySafety
     {
 
@@ -301,8 +308,15 @@ namespace ocs
 
         DynamicJsonDocument setFromJson(DynamicJsonDocument json)
         {
-            this->ConfigParameter.fromJson(json);
-            this->ConfigParameter.saveLocalStorage();
+
+            serializeJsonPretty(json, Serial);
+            if (json != NULL)
+            {
+                Serial.println(F("Ingresa a setFromJson"));
+                this->ConfigParameter.fromJson(json);
+                this->ConfigParameter.saveLocalStorage();
+            }
+
             return this->ConfigParameter.toJson();
         }
 
@@ -366,7 +380,55 @@ namespace ocs
                                request->send(200, F("application/json"), "{\"ESP\": \"Restarting...\"}");
                                this->reboot(); });
 
-            ocsWebAdmin.addHandler(this->handlerBody); // Para poder leer el body enviado en el request
+            ocsWebAdmin.on(
+                "/setsettings", HTTP_POST, [&](AsyncWebServerRequest *request) {},
+                NULL, [&](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+                {
+                    Serial.println("Entra al nuevo setsettings ");
+                    Serial.println(String(index));
+                    Serial.println(String(len));
+                    Serial.println(String(total));
+
+                    Serial.println("-------------------------------");
+
+                    if (index == 0)
+                    {
+                        // Reemplazamos toda la matriz con espacios vacío
+                        for (size_t i = 0; i < 4096; i++)
+                        {
+                            this->body_json_data[i] = 32;
+                        }
+                    }
+
+                    for (size_t i = 0; i < len; i++)
+                    {
+                        this->body_json_data[i + index] = data[i];
+                    }
+
+                    if (index + len == total)
+                    {
+                        Serial.println("Es el último bloque");
+
+                        DynamicJsonDocument json(4096);
+
+                        DeserializationError err = deserializeJson(json, this->body_json_data);
+                        if (err)
+                        {
+                            Serial.print(F("deserializeJson() failed: "));
+                            Serial.println(err.c_str());
+                            request->send(500, F("application/json"), "{\"error\":\"" + String(err.c_str()) + "\"}");
+                        }
+                        else
+                        {
+                            // serializeJsonPretty(json, Serial);
+                            String r = "";
+                            serializeJson(this->setFromJson(json), r);
+                            request->send(200, F("application/json"), r);
+                        }
+                    }
+                });
+
+            // ocsWebAdmin.addHandler(this->handlerBody); // Para poder leer el body enviado en el request
             ocsWebAdmin.setup();
 
             this->ConfigParameter = config;
@@ -403,7 +465,7 @@ namespace ocs
                                      {
                                          Serial.print(F("Got Message: "));
                                          Serial.println(message.data());
-                                         this->ledBlinkOnWs();       
+                                         this->ledBlinkOnWs();
                                          DynamicJsonDocument doc(250);
                                          DeserializationError error = deserializeJson(doc, message.data());
 
@@ -416,13 +478,14 @@ namespace ocs
                                          else
                                          {
 
-
-if(!doc["command"].isNull()){
-this->onwsCommand(doc);
-}else if(!doc["request"].isNull()){
-this->onwsRequest(doc);
-}
-
+                                             if (!doc["command"].isNull())
+                                             {
+                                                 this->onwsCommand(doc);
+                                             }
+                                             else if (!doc["request"].isNull())
+                                             {
+                                                 this->onwsRequest(doc);
+                                             }
                                          } });
 
             this->wsclient.onEvent([&](WebsocketsEvent event, String data) -> void
@@ -460,7 +523,8 @@ this->onwsRequest(doc);
             this->led.low();
         }
 
-        void connectWS()
+        void
+        connectWS()
         {
             delay(500);
             Serial.println(this->ConfigParameter.websocketHostRequest);
@@ -498,12 +562,14 @@ this->onwsRequest(doc);
         ocs::input::Input inputs[ocs::MAX_INPUTS];
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
+        char body_json_data[4096];
+        // bodyData bdata[3];
 
         void ledBlinkOnWs()
         {
             this->led.low();
-            this->led.blink(350, 450, 100, 81);
-                                //this->outputs[i].blink(2000, 1500, 0, 4); // 1500 milliseconds ON, 2000 milliseconds OFF, start immidiately, blink 10 times (5 times OFF->ON, 5 times ON->OFF, interleavedly)
+            this->led.blink(1000, 500, 0, 6);
+            // this->outputs[i].blink(2000, 1500, 0, 4); // 1500 milliseconds ON, 2000 milliseconds OFF, start immidiately, blink 10 times (5 times OFF->ON, 5 times ON->OFF, interleavedly)
         }
 
         void onwsCommand(DynamicJsonDocument doc)
@@ -548,8 +614,10 @@ this->onwsRequest(doc);
             }
         }
 
-        AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettings", [&](AsyncWebServerRequest *request, JsonVariant &json)
+        AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettingsX", [&](AsyncWebServerRequest *request, JsonVariant &json)
+
                                                                                    {
+        serializeJsonPretty(json, Serial);
                 String r = "";
                 serializeJson(this->setFromJson(json), r);
                 request->send(200, F("application/json"), r); });

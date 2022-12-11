@@ -4,7 +4,7 @@
 
 namespace ocs
 {
-    const unsigned int EEPROM_SIZE_DEFAULT = 2816;
+    const unsigned int EEPROM_SIZE_DEFAULT = 4096;
     class LocalStore
     {
 
