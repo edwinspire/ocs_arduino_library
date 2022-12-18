@@ -4,7 +4,13 @@
 
 namespace ocs
 {
+
+#ifdef ESP32
     const unsigned int EEPROM_SIZE_DEFAULT = 4096;
+#elif defined(ESP8266)
+    const unsigned int EEPROM_SIZE_DEFAULT = 2048;
+#endif
+
     class LocalStore
     {
 
@@ -29,7 +35,7 @@ namespace ocs
             }
             // Serial.print("6");
             EEPROM.end();
-            //  Serial.print("7");
+            Serial.print(F("EEPROM Data: "));
             Serial.println(eeprom_data);
             DynamicJsonDocument doc(ocs::EEPROM_SIZE_DEFAULT);
             DeserializationError err = deserializeJson(doc, eeprom_data);
@@ -62,6 +68,10 @@ namespace ocs
                 EEPROM.commit();
                 EEPROM.end();
             }
+            else
+            {
+                serializeJsonPretty(doc, Serial);
+            }
 
             return doc;
         }
@@ -69,7 +79,7 @@ namespace ocs
         static bool save(DynamicJsonDocument doc)
         {
             bool r = false;
-            Serial.println("--> Save - Cambios pendientes ");
+            Serial.println(F("--> Save - Cambios pendientes "));
             String data_serialized = "";
             serializeJson(doc, data_serialized);
             Serial.println(data_serialized);

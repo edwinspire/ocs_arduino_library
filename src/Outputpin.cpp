@@ -18,6 +18,7 @@ namespace edwinspire
         {
             // Without inicialized
             this->_outputPin = 255;
+            this->enabled = false;
         }
         byte getGPIO()
         {

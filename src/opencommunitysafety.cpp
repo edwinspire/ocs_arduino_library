@@ -20,6 +20,12 @@ namespace ocs
     const byte MAX_OUTPUTS = 1;
     const byte MAX_INPUTS = 6;
 
+#ifdef ESP32
+    const unsigned int JSON_MAX_SIZE = 4096;
+#elif defined(ESP8266)
+    const unsigned int JSON_MAX_SIZE = 2048;
+#endif
+
     struct outputConfig
     {
         //        edwinspire::OutputPin output;
@@ -27,20 +33,19 @@ namespace ocs
         byte gpio = 255;
         bool enabled = false;
 
-        void fromJson(DynamicJsonDocument data)
+        void fromJson(const DynamicJsonDocument &data)
         {
-
-            this->enabled = data["enabled"].as<boolean>();
-            this->name = data["name"].as<String>();
-            this->gpio = data["gpio"].as<byte>();
+            this->enabled = data[F("enabled")].as<boolean>();
+            this->name = data[F("name")].as<String>();
+            this->gpio = data[F("gpio")].as<byte>();
         }
 
-        DynamicJsonDocument toJson()
+        StaticJsonDocument<64> toJson()
         {
-            DynamicJsonDocument doc(128);
-            doc["gpio"] = this->gpio;
-            doc["enabled"] = this->enabled;
-            doc["name"] = this->name;
+            StaticJsonDocument<64> doc;
+            doc[F("gpio")] = this->gpio;
+            doc[F("enabled")] = this->enabled;
+            doc[F("name")] = this->name;
             return doc;
         }
     };
@@ -50,11 +55,11 @@ namespace ocs
         String ssid;
         String pwd;
 
-        DynamicJsonDocument toJson()
+        StaticJsonDocument<32> toJson()
         {
-            DynamicJsonDocument doc(32);
-            doc["ssid"] = this->ssid;
-            doc["pwd"] = this->pwd;
+            StaticJsonDocument<32> doc;
+            doc[F("ssid")] = this->ssid;
+            doc[F("pwd")] = this->pwd;
             return doc;
         }
     };
@@ -84,6 +89,42 @@ namespace ocs
             //  this->MAX_SSID_WIFI = ocs::MAX_SSID_WIFI;
             this->websocketHostRequest = this->websocketHost + "?deviceId=" + this->deviceId;
         }
+        void setConfigWifi(const DynamicJsonDocument & data)
+        {
+
+            for (byte i = 0; i < ocs::MAX_SSID_WIFI; i = i + 1)
+            {
+
+                if (i == 0)
+                {
+                    // Setea en primera posición el wifi default
+                    this->wifi[i].ssid = ocs::default_wifi.ssid;
+                    this->wifi[i].pwd = ocs::default_wifi.pwd;
+                }
+                else if (!data[i][F("ssid")].isNull() && data[i][F("ssid")].as<String>().length() > 5)
+                {
+                    this->wifi[i].ssid = data[i][F("ssid")].as<String>();
+                    this->wifi[i].pwd = data[i][F("pwd")].as<String>();
+                }
+            }
+        }
+
+        void setConfigInputs(const DynamicJsonDocument & data)
+        {
+
+            for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
+            {
+                this->input[i].fromJson(data[F("i")]);
+            }
+        }
+
+        void setConfigoutputs(const DynamicJsonDocument & data)
+        {
+            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
+            {
+                this->output[i].fromJson(data[i]);
+            }
+        }
 
     public:
         Config()
@@ -102,66 +143,67 @@ namespace ocs
             this->fromJson(LocalStore::read());
         }
 
-        void fromJson(DynamicJsonDocument data)
+        void fromJson(const DynamicJsonDocument & data)
         {
 
-            this->websocketHost = data["wsHost"].as<String>();
-            this->led = data["led"].as<byte>();
+            Serial.println(F("----- Config fromJson -----"));
+            // serializeJsonPretty(data, Serial);
 
-            for (byte i = 0; i < ocs::MAX_SSID_WIFI; i = i + 1)
-            {
+            this->websocketHost = data[F("wsHost")].as<String>();
+            this->led = data[F("led")].as<byte>();
 
-                if (i == 0)
-                {
-                    // Setea en primera posición el wifi default
-                    this->wifi[i].ssid = ocs::default_wifi.ssid;
-                    this->wifi[i].pwd = ocs::default_wifi.pwd;
-                }
-                else if (!data["wf"][i]["ssid"].isNull() && data["wf"][i]["ssid"].as<String>().length() > 5)
-                {
-                    this->wifi[i].ssid = data["wf"][i]["ssid"].as<String>();
-                    this->wifi[i].pwd = data["wf"][i]["pwd"].as<String>();
-                }
-            }
+            this->setConfigWifi(data[F("wf")]);
+            this->setConfigInputs(data[F("i")]);
+            this->setConfigoutputs(data[F("o")]);
 
-            for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
-            {
-                this->input[i].fromJson(data["i"][i]);
-            }
+            this->name = data[F("name")].as<String>();
+            this->deviceId = data[F("deviceId")].as<String>();
+            this->caCert_fingerPrint = data[F("cfp")].as<String>();
+            this->allowActivationByGeolocation = data[F("acbgl")].as<boolean>();
+            this->latitude = data[F("latitude")].as<String>();
+            this->longitude = data[F("latitude")].as<String>();
 
-            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
-            {
-                this->output[i].fromJson(data["o"][i]);
-            }
-
-            this->name = data["name"].as<String>();
-            this->deviceId = data["deviceId"].as<String>();
-            this->caCert_fingerPrint = data["cfp"].as<String>();
-            this->allowActivationByGeolocation = data["acbgl"].as<boolean>();
-            this->latitude = data["latitude"].as<String>();
-            this->longitude = data["latitude"].as<String>();
             this->setDefault();
+        }
+
+        void printMemory()
+        {
+
+            Serial.print(F("getFreeHeap: "));
+            Serial.println(ESP.getFreeHeap());
+
+            // Serial.print(F("getFreeContStack: "));
+            // Serial.println(ESP.resetHeap());
+
+            // Serial.print(F("getFreeContStack: "));
+            // Serial.println(ESP.getFreeContStack());
+
+            Serial.print(F("getHeapFragmentation: "));
+            Serial.println(ESP.getHeapFragmentation());
         }
 
         DynamicJsonDocument toJson()
         {
             this->setDefault();
+
+            printMemory();
+            ESP.resetHeap();
             DynamicJsonDocument doc(4096);
-            // doc["input01"] = this->input->gpio;
-            doc["deviceId"] = this->deviceId;
-            doc["wsHost"] = this->websocketHost;
-            doc["latitude"] = this->latitude;
-            doc["longitude"] = this->longitude;
-            doc["MAX_SSID_WIFI"] = ocs::MAX_SSID_WIFI;
+            printMemory();
+            doc[F("deviceId")] = this->deviceId;
+            doc[F("wsHost")] = this->websocketHost;
+            doc[F("latitude")] = this->latitude;
+            doc[F("longitude")] = this->longitude;
+            doc[F("MAX_SSID_WIFI")] = ocs::MAX_SSID_WIFI;
 
 #ifdef ESP32
-            doc["ChipModel"] = ESP.getChipModel();
-            doc["EfuseMac"] = String(ESP.getEfuseMac(), HEX);
-            doc["ChipRevision"] = ESP.getChipRevision();
+            doc[F("ChipModel")] = ESP.getChipModel();
+            doc[F("EfuseMac")] = String(ESP.getEfuseMac(), HEX);
+            doc[F("ChipRevision")] = ESP.getChipRevision();
 #elif defined(ESP8266)
-            doc["ChipModel"] = String(ESP.getChipId(), HEX);
-            doc["EfuseMac"] = String(ESP.getFlashChipId(), HEX);
-            doc["ChipRevision"] = ESP.getCoreVersion();
+            doc[F("ChipModel")] = String(ESP.getChipId(), HEX);
+            doc[F("EfuseMac")] = String(ESP.getFlashChipId(), HEX);
+            doc[F("ChipRevision")] = ESP.getCoreVersion();
 
 #endif
 
@@ -170,30 +212,33 @@ namespace ocs
                 if (i == 0)
                 {
                     // Posición 0 siempre va la el SSID default
-                    doc["wf"][i]["ssid"] = ocs::default_wifi.ssid;
-                    doc["wf"][i]["pwd"] = ocs::default_wifi.ssid;
+                    doc[F("wf")][i][F("ssid")] = ocs::default_wifi.ssid;
+                    doc[F("wf")][i][F("pwd")] = ocs::default_wifi.ssid;
                 }
                 else
                 {
-                    doc["wf"][i]["ssid"] = this->wifi[i].ssid;
-                    doc["wf"][i]["pwd"] = this->wifi[i].pwd;
+                    doc[F("wf")][i][F("ssid")] = this->wifi[i].ssid;
+                    doc[F("wf")][i][F("pwd")] = this->wifi[i].pwd;
                 }
             }
 
             for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
             {
-                doc["i"][i] = this->input[i].toJson();
+                doc[F("i")][i] = this->input[i].toJson();
             }
 
             for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
             {
-                doc["o"][i] = this->output[i].toJson();
+                doc[F("o")][i] = this->output[i].toJson();
             }
 
-            doc["cfp"] = this->caCert_fingerPrint;
-            doc["acbgl"] = this->allowActivationByGeolocation;
-            doc["name"] = this->name;
-            doc["led"] = this->led;
+            doc[F("cfp")] = this->caCert_fingerPrint;
+            doc[F("acbgl")] = this->allowActivationByGeolocation;
+            doc[F("name")] = this->name;
+            doc[F("led")] = this->led;
+
+            //    Serial.println(F("Config toJson"));
+            //    serializeJsonPretty(doc, Serial);
 
             return doc;
         }
@@ -210,14 +255,10 @@ namespace ocs
         String name;
         bool allowActivationByGeolocation = false;
         String websocketHostRequest;
+        // StaticJsonDocument<4096> * json;
     };
 
-    struct bodyData
-    {
-        uint8_t *data;
-        size_t len;
-        size_t index;
-    };
+    // char body_json_data_tmp[4096]  = {};
 
     class OpenCommunitySafety
     {
@@ -258,6 +299,7 @@ namespace ocs
             // let the websockets client check for incoming messages
             if (this->wsclient.available())
             {
+                ESP.wdtFeed();
                 this->wsclient.poll();
                 if (millis() - this->last_time_ws_ping > this->intervalWsPing)
                 {
@@ -290,13 +332,13 @@ namespace ocs
                         this->setAlarm(ocs::input::SirenType::CONTINUOUS);
                     }
 
-                    DynamicJsonDocument doc(1024);
+                    StaticJsonDocument<1024> doc;
 
-                    doc["event"]["deviceId"] = this->ConfigParameter.deviceId;
-                    doc["event"]["input"] = this->inputs[i].toJson();
-                    doc["event"]["latitude"] = this->ConfigParameter.latitude;
-                    doc["event"]["longitude"] = this->ConfigParameter.longitude;
-                    doc["event"]["allowActivationByGeolocation"] = this->ConfigParameter.allowActivationByGeolocation;
+                    doc[F("event")][F("deviceId")] = this->ConfigParameter.deviceId;
+                    doc[F("event")][F("input")] = this->inputs[i].toJson();
+                    doc[F("event")][F("latitude")] = this->ConfigParameter.latitude;
+                    doc[F("event")][F("longitude")] = this->ConfigParameter.longitude;
+                    doc[F("event")][F("allowActivationByGeolocation")] = this->ConfigParameter.allowActivationByGeolocation;
 
                     // Serial.println(F("this->inputs[i].changed() => "));
                     // serializeJsonPretty(doc, Serial);
@@ -309,7 +351,7 @@ namespace ocs
         DynamicJsonDocument setFromJson(DynamicJsonDocument json)
         {
 
-            serializeJsonPretty(json, Serial);
+            // serializeJsonPretty(json, Serial);
             if (json != NULL)
             {
                 Serial.println(F("Ingresa a setFromJson"));
@@ -322,6 +364,7 @@ namespace ocs
 
         DynamicJsonDocument toJson()
         {
+            this->ConfigParameter.printMemory();
             return this->ConfigParameter.toJson();
         }
 
@@ -361,11 +404,85 @@ namespace ocs
         void setup(ocs::Config config)
         {
             Serial.println(F("Setup OCS"));
+
+            this->ConfigParameter = config;
+
+            this->setUpInputs();
+            this->setUpOutputs();
+
+            this->led.setup(this->ConfigParameter.led, true);
+
+            this->setUpWebAdmin();
+            this->setUpwebSocket();
+
+            this->led.high();
+            delay(800);
+            this->led.low();
+            delay(400);
+            this->led.high();
+            delay(800);
+            this->led.low();
+            delay(400);
+            this->led.high();
+            delay(800);
+            this->led.low();
+        }
+
+        void
+        connectWS()
+        {
+            delay(500);
+            Serial.println(this->ConfigParameter.websocketHostRequest);
+            bool connected = this->wsclient.connect(this->ConfigParameter.websocketHostRequest);
+
+            if (connected)
+            {
+                Serial.println(F("WS Connected"));
+                this->wsclient.send(F("{\"request\": 1000}"));
+                this->wsclient.ping();
+            }
+            else
+            {
+                Serial.println(F("WS Not Connected!"));
+                delay(1500);
+            }
+        }
+
+        DynamicJsonDocument statusInputs()
+        {
+            DynamicJsonDocument doc(ocs::JSON_MAX_SIZE);
+
+            for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
+            {
+                doc[i] = this->inputs[i].toJson();
+            }
+
+            return doc;
+        }
+
+    private:
+        WebsocketsClient wsclient;
+        edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS];
+        edwinspire::OutputPin led;
+        ocs::input::Input inputs[ocs::MAX_INPUTS];
+        unsigned long intervalWsPing = 50000;
+        unsigned long last_time_ws_ping = 0;
+        // char body_json_data_tmp[4096]  = {};
+        // char variableName[4096]  = {};
+
+        // bodyData bdata[3];
+        String tmp_buffer_body;
+
+        void setUpWebAdmin()
+        {
+
+            ocsWebAdmin.setup();
+
             ocsWebAdmin.on("/getsettings", [&](AsyncWebServerRequest *request)
                            {
             String outputJson = "";
             serializeJson(this->toJson(), outputJson);
-            Serial.println(outputJson);
+            //Serial.println(outputJson);
             request->send(200, F("application/json"), outputJson); });
 
             ocsWebAdmin.on("/getinputsstatus", [&](AsyncWebServerRequest *request)
@@ -384,34 +501,73 @@ namespace ocs
                 "/setsettings", HTTP_POST, [&](AsyncWebServerRequest *request) {},
                 NULL, [&](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
                 {
+  /*
                     Serial.println("Entra al nuevo setsettings ");
                     Serial.println(String(index));
                     Serial.println(String(len));
                     Serial.println(String(total));
 
                     Serial.println("-------------------------------");
+*/
+
+/*
+Serial.println(F("<--- ------------ --->"));
+Serial.println("Index: "+String(index));
+Serial.println("size_t: "+String(len) );
+Serial.println("total: "+total);
+*/
 
                     if (index == 0)
                     {
+                        /*
                         // Reemplazamos toda la matriz con espacios vacío
                         for (size_t i = 0; i < 4096; i++)
                         {
-                            this->body_json_data[i] = 32;
+                            body_json_data_tmp[i] = 32;
                         }
+                        */
+  //                     Serial.println(F("<--- Es el primer bloque --->"));
+                       //this->tmp_buffer_body.reserve(total+64);
+                       this->tmp_buffer_body = "";
                     }
+
+
+//Serial.println(F("++++++++++++++++++++++++++++"));
+/*
+  Serial.print(F("getFreeHeap: "));
+  Serial.println(ESP.getFreeHeap());
+*/
+  //Serial.print(F("getFreeContStack: "));
+  //Serial.println(ESP.getFreeContStack());
+/*
+  Serial.print(F("getHeapFragmentation: "));
+  Serial.println(ESP.getHeapFragmentation());
+*/
+  //Serial.print(F("getMaxFreeBlockSize: "));
+  //Serial.println(ESP.getMaxFreeBlockSize());
+
+
 
                     for (size_t i = 0; i < len; i++)
                     {
-                        this->body_json_data[i + index] = data[i];
+                        //body_json_data_tmp[i + index] = data[i];
+                        //Serial.print(char(data[i]));
+                        this->tmp_buffer_body.concat(char(data[i]));
+                        //Serial.print(this->tmp_buffer_body.charAt(i + index));
                     }
+                    
+//                    Serial.println(F("   xxx"));
 
                     if (index + len == total)
                     {
-                        Serial.println("Es el último bloque");
+                        Serial.println(F("--- Es el último bloque ---"));
+                        Serial.println(this->tmp_buffer_body);
 
-                        DynamicJsonDocument json(4096);
+                        //DynamicJsonDocument json(this->tmp_buffer_body.length()+8);
+                        StaticJsonDocument<ocs::JSON_MAX_SIZE> json;   
 
-                        DeserializationError err = deserializeJson(json, this->body_json_data);
+                        DeserializationError err = deserializeJson(json, this->tmp_buffer_body);
+                        this->tmp_buffer_body.reserve(0);
                         if (err)
                         {
                             Serial.print(F("deserializeJson() failed: "));
@@ -425,14 +581,13 @@ namespace ocs
                             serializeJson(this->setFromJson(json), r);
                             request->send(200, F("application/json"), r);
                         }
-                    }
-                });
+                    } });
 
             // ocsWebAdmin.addHandler(this->handlerBody); // Para poder leer el body enviado en el request
-            ocsWebAdmin.setup();
+        }
 
-            this->ConfigParameter = config;
-
+        void setUpwebSocket()
+        {
             if (this->ConfigParameter.websocketHost.startsWith("wss"))
             {
 
@@ -443,30 +598,13 @@ namespace ocs
 #endif
             }
 
-            //            this->input01.setup(this->ConfigParameter.input->gpio, this->ConfigParameter.input->name);
-            for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
-            {
-                // this->inputs[i].setup(this->ConfigParameter.input[i].gpio, this->ConfigParameter.input[i].name, this->ConfigParameter.input[i].enabled);
-                this->inputs[i].setup(this->ConfigParameter.input[i]);
-            }
-
-            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
-            {
-
-                if (this->ConfigParameter.output[i].gpio != 255)
-                {
-                    this->outputs[i].setup(this->ConfigParameter.output[i].gpio, this->ConfigParameter.output[i].enabled);
-                    this->outputs[i].low();
-                }
-            }
-
             //   run callback when messages are received
             this->wsclient.onMessage([&](WebsocketsMessage message) -> void
                                      {
                                          Serial.print(F("Got Message: "));
                                          Serial.println(message.data());
                                          this->ledBlinkOnWs();
-                                         DynamicJsonDocument doc(250);
+                                         StaticJsonDocument<250> doc;
                                          DeserializationError error = deserializeJson(doc, message.data());
 
                                          // Test if parsing succeeds.
@@ -508,62 +646,30 @@ namespace ocs
     {
         Serial.println(F("Got a Pong!"));
     } });
-
-            this->led.setup(this->ConfigParameter.led, true);
-            this->led.high();
-            delay(800);
-            this->led.low();
-            delay(400);
-            this->led.high();
-            delay(800);
-            this->led.low();
-            delay(400);
-            this->led.high();
-            delay(800);
-            this->led.low();
         }
 
-        void
-        connectWS()
+        void setUpInputs()
         {
-            delay(500);
-            Serial.println(this->ConfigParameter.websocketHostRequest);
-            bool connected = this->wsclient.connect(this->ConfigParameter.websocketHostRequest);
-
-            if (connected)
-            {
-                Serial.println(F("WS Connected"));
-                this->wsclient.send(F("{\"request\": 1000}"));
-                this->wsclient.ping();
-            }
-            else
-            {
-                Serial.println(F("WS Not Connected!"));
-                delay(1500);
-            }
-        }
-
-        DynamicJsonDocument statusInputs()
-        {
-            DynamicJsonDocument doc(2048);
-
+            //            this->input01.setup(this->ConfigParameter.input->gpio, this->ConfigParameter.input->name);
             for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
             {
-                doc[i] = this->inputs[i].toJson();
+                // this->inputs[i].setup(this->ConfigParameter.input[i].gpio, this->ConfigParameter.input[i].name, this->ConfigParameter.input[i].enabled);
+                this->inputs[i].setup(this->ConfigParameter.input[i]);
             }
-
-            return doc;
         }
 
-    private:
-        WebsocketsClient wsclient;
-        edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS];
-        edwinspire::OutputPin led;
-        ocs::input::Input inputs[ocs::MAX_INPUTS];
-        unsigned long intervalWsPing = 50000;
-        unsigned long last_time_ws_ping = 0;
-        char body_json_data[4096];
-        // bodyData bdata[3];
+        void setUpOutputs()
+        {
+            for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
+            {
+
+                if (this->ConfigParameter.output[i].gpio != 255)
+                {
+                    this->outputs[i].setup(this->ConfigParameter.output[i].gpio, this->ConfigParameter.output[i].enabled);
+                    this->outputs[i].low();
+                }
+            }
+        }
 
         void ledBlinkOnWs()
         {
@@ -574,20 +680,20 @@ namespace ocs
 
         void onwsCommand(DynamicJsonDocument doc)
         {
-            unsigned int command = doc["command"];
+            unsigned int command = doc[F("command")];
 
             switch (command)
             {
             case 1: // Set Alarm
             {
                 Serial.println(F("SET ALARM..."));
-                Serial.println(doc["siren_type"].as<const char *>());
-                ocs::input::SirenType siren_type = doc["siren_type"];
+                // Serial.println(doc["siren_type"].as<const char *>());
+                ocs::input::SirenType siren_type = doc[F("siren_type")];
                 this->setAlarm(siren_type);
             }
             break;
             case 1000: // Set deviceId
-                this->ConfigParameter.deviceId = doc["deviceId"].as<String>();
+                this->ConfigParameter.deviceId = doc[F("deviceId")].as<String>();
                 Serial.println(F("seteada UUID"));
                 this->ConfigParameter.saveLocalStorage();
                 break;
@@ -596,16 +702,16 @@ namespace ocs
 
         void onwsRequest(DynamicJsonDocument doc)
         {
-            unsigned int command = doc["request"];
+            unsigned int command = doc[F("request")];
 
             switch (command)
             {
             case 1000: // Requiere datos de configuración
             {
                 Serial.println(F("Response configuration ..."));
-                DynamicJsonDocument doc(4096);
-                doc["response"] = 1000;
-                doc["data"] = this->toJson();
+                StaticJsonDocument<4096> doc;
+                doc[F("response")] = 1000;
+                doc[F("data")] = this->toJson();
                 String outputJson = "";
                 serializeJson(doc, outputJson);
                 this->wsclient.send(outputJson);
@@ -614,12 +720,27 @@ namespace ocs
             }
         }
 
-        AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettingsX", [&](AsyncWebServerRequest *request, JsonVariant &json)
+        /*
+                void ongetStatus(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
+                {
+                    {
+                        String outputJson = "";
+                        serializeJson(this->statusInputs(), outputJson);
+                        // Serial.println(outputJson);
+                        request->send(200, F("application/json"), outputJson);
+                    }
+                }
 
-                                                                                   {
-        serializeJsonPretty(json, Serial);
-                String r = "";
-                serializeJson(this->setFromJson(json), r);
-                request->send(200, F("application/json"), r); });
+        */
+
+        /*
+                AsyncCallbackJsonWebHandler *handlerBody = new AsyncCallbackJsonWebHandler("/setsettingsX", [&](AsyncWebServerRequest *request, JsonVariant &json)
+
+                                                                                           {
+                serializeJsonPretty(json, Serial);
+                        String r = "";
+                        serializeJson(this->setFromJson(json), r);
+                        request->send(200, F("application/json"), r); });
+                        */
     };
 }

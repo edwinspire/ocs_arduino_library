@@ -50,18 +50,18 @@ namespace ocs
             String name = "Input";
             byte gpio = 255;
             ContactType contact_type = ContactType::NORMALLY_CLOSED;
-            DynamicJsonDocument toJson()
+            StaticJsonDocument<64> toJson()
             {
                 this->set_default();
-                DynamicJsonDocument doc(256);
-                doc["type"] = this->type;
-                doc["siren_type"] = this->siren_type;
-                doc["contact_type"] = this->contact_type;
-                doc["enabled"] = this->enabled;
-                doc["name"] = this->name;
-                doc["gpio"] = this->gpio;
-               // Serial.println(F("Input Configure toJson"));
-                //serializeJsonPretty(doc, Serial);
+                StaticJsonDocument<64> doc;
+                doc[F("type")] = this->type;
+                doc[F("siren_type")] = this->siren_type;
+                doc[F("contact_type")] = this->contact_type;
+                doc[F("enabled")] = this->enabled;
+                doc[F("name")] = this->name;
+                doc[F("gpio")] = this->gpio;
+                // Serial.println(F("Input Configure toJson"));
+                // serializeJsonPretty(doc, Serial);
                 return doc;
             }
 
@@ -81,12 +81,12 @@ namespace ocs
                 //              serializeJsonPretty(data, Serial);
 
                 this->set_default();
-                this->type = data["type"].as<Type>();
-                this->siren_type = data["siren_type"].as<SirenType>();
-                this->contact_type = data["contact_type"].as<ContactType>();
-                this->enabled = data["enabled"].as<boolean>();
-                this->name = data["name"].as<String>();
-                this->gpio = data["gpio"].as<byte>();
+                this->type = data[F("type")].as<Type>();
+                this->siren_type = data[F("siren_type")].as<SirenType>();
+                this->contact_type = data[F("contact_type")].as<ContactType>();
+                this->enabled = data[F("enabled")].as<boolean>();
+                this->name = data[F("name")].as<String>();
+                this->gpio = data[F("gpio")].as<byte>();
             }
         };
 
@@ -109,14 +109,14 @@ namespace ocs
             // byte gpio = 255;
             Configure config;
 
-            DynamicJsonDocument toJson()
+            StaticJsonDocument<250> toJson()
             {
-                DynamicJsonDocument doc(256);
-                doc["config"] = this->config.toJson();
-                doc["status"] = this->status;
-                doc["value"] = this->getvalue();
-                //Serial.println(F("Input toJson => "));
-                //serializeJsonPretty(doc, Serial);
+                StaticJsonDocument<250> doc;
+                doc[F("config")] = this->config.toJson();
+                doc[F("status")] = this->status;
+                doc[F("value")] = this->getvalue();
+                // Serial.println(F("Input toJson => "));
+                // serializeJsonPretty(doc, Serial);
                 return doc;
             }
 
