@@ -7,6 +7,10 @@ namespace ocs
     namespace input
     {
 
+        const char json_key_enabled[8] = "enabled";
+        const char json_key_name[5] = "name";
+        const char json_key_gpio[5] = "gpio";
+
         enum SirenType
         {
             UNABLED = 0,
@@ -50,18 +54,23 @@ namespace ocs
             String name = "Input";
             byte gpio = 255;
             ContactType contact_type = ContactType::NORMALLY_CLOSED;
-            StaticJsonDocument<64> toJson()
+
+            DynamicJsonDocument toJson()
             {
                 this->set_default();
-                StaticJsonDocument<64> doc;
+                DynamicJsonDocument doc(256);
+                doc[input::json_key_gpio] = this->gpio;
+                doc[input::json_key_enabled] = this->enabled;
                 doc[F("type")] = this->type;
                 doc[F("siren_type")] = this->siren_type;
-                doc[F("contact_type")] = this->contact_type;
-                doc[F("enabled")] = this->enabled;
-                doc[F("name")] = this->name;
-                doc[F("gpio")] = this->gpio;
-                // Serial.println(F("Input Configure toJson"));
-                // serializeJsonPretty(doc, Serial);
+                doc[F("contact_type")] = this->contact_type;                
+                doc[input::json_key_name] = this->name;                
+               
+              //  Serial.println(F("Input Configure toJson"));
+
+             //  Serial.println(" __>>>>> NAME  " + String(input::json_key_name)+ " ->>> " +String(this->name));
+
+            //    serializeJsonPretty(doc, Serial);
                 return doc;
             }
 
@@ -77,16 +86,23 @@ namespace ocs
             void fromJson(DynamicJsonDocument data)
             {
 
-                //                Serial.println(">>>< Input Configure from JSON");
+                //Serial.println(">>>< Input Configure from JSON");
+
                 //              serializeJsonPretty(data, Serial);
 
                 this->set_default();
+                this->gpio = data[input::json_key_gpio].as<byte>();
                 this->type = data[F("type")].as<Type>();
                 this->siren_type = data[F("siren_type")].as<SirenType>();
                 this->contact_type = data[F("contact_type")].as<ContactType>();
-                this->enabled = data[F("enabled")].as<boolean>();
-                this->name = data[F("name")].as<String>();
-                this->gpio = data[F("gpio")].as<byte>();
+                this->enabled = data[input::json_key_enabled].as<boolean>();
+                this->name = data[input::json_key_name].as<String>();
+                
+
+               // Serial.println(" name " + this->name);
+               // Serial.println(" json_key_gpio " + String(this->gpio));
+               // Serial.println(" siren_type " + String(this->siren_type));
+
             }
         };
 
@@ -133,6 +149,7 @@ namespace ocs
                     else
                     {
                         Serial.println(F("En ESP32 no está permitido usar el GPIO como entrada."));
+                        this->config.enabled = false;
                     }
 #elif defined(ESP8266)
                     this->value = analogRead(this->config.gpio); // read the input pin
