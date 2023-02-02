@@ -2,14 +2,14 @@
 #ifdef ESP32
 #include <WiFi.h>
 #include <AsyncTCP.h>
-#include "SPIFFS.h"
+// #include "SPIFFS.h"
 #elif defined(ESP8266)
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
-#include "LittleFS.h"
 #endif
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include "LittleFS.h"
 
 namespace ocs
 {
@@ -23,30 +23,6 @@ namespace ocs
             Serial.printf("WebAdmin Port: %i\n", port);
         }
 
-#ifdef ESP32
-        void setup()
-        {
-
-            // Initialize
-            if (!SPIFFS.begin(true))
-            {
-                Serial.println(F("An Error has occurred while mounting SPIFFS"));
-                // return;
-            }
-
-            this->on("/", HTTP_GET, [&](AsyncWebServerRequest *request)
-                     { request->send(SPIFFS, F("/index.html"), F("text/html")); });
-
-            this->on("/build/bundle.css", HTTP_GET, [&](AsyncWebServerRequest *request)
-                     { request->send(SPIFFS, F("/bundle.css"), F("text/css")); });
-
-            this->on("/build/bundle.js", HTTP_GET, [&](AsyncWebServerRequest *request)
-                     { request->send(SPIFFS, F("/bundle.js"), F("application/javascript")); });
-            this->onNotFound([&](AsyncWebServerRequest *request)
-                             { request->send(404, F("text/plain"), F("Not found")); });
-        }
-
-#elif defined(ESP8266)
         void setup()
         {
 
@@ -55,21 +31,10 @@ namespace ocs
                 Serial.println(F("An Error has occurred while mounting LittleFS"));
             }
 
-            this->on("/", HTTP_GET, [&](AsyncWebServerRequest *request)
-                     {
-                         request->send(LittleFS, F("/index.html"), F("text/html"));
-                     });
-
-            this->on("/build/bundle.css", HTTP_GET, [&](AsyncWebServerRequest *request)
-                     { request->send(LittleFS, F("/bundle.css"), F("text/css")); });
-
-            this->on("/build/bundle.js", HTTP_GET, [&](AsyncWebServerRequest *request)
-                     { request->send(LittleFS, F("/bundle.js"), F("application/javascript")); });
+            this->serveStatic("/", LittleFS, "/build").setDefaultFile("index.html").setCacheControl("max-age=31536000");
             this->onNotFound([&](AsyncWebServerRequest *request)
                              { request->send(404, F("text/plain"), F("Not found")); });
         }
-
-#endif
 
     private:
     };
