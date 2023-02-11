@@ -9,9 +9,108 @@
 using namespace websockets;
 
 ocs::WebAdmin ocsWebAdmin(80);
+AsyncWebSocket ws("/ws");
 
 namespace ocs
 {
+
+    void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+    {
+        if (type == WS_EVT_CONNECT)
+        {
+            Serial.printf("ws[%s][%u] connect\n", server->url(), client->id());
+            client->printf("{\"ClientID\": %u}", client->id());
+            client->ping();
+        }
+        else if (type == WS_EVT_DISCONNECT)
+        {
+            Serial.printf("ws[%s][%u] disconnect\n", server->url(), client->id());
+        }
+        else if (type == WS_EVT_ERROR)
+        {
+            Serial.printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *)arg), (char *)data);
+        }
+        else if (type == WS_EVT_PONG)
+        {
+            Serial.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char *)data : "");
+        }
+        else if (type == WS_EVT_DATA)
+        {
+            AwsFrameInfo *info = (AwsFrameInfo *)arg;
+            String msg = "";
+            if (info->final && info->index == 0 && info->len == len)
+            {
+                // the whole message is in a single frame and we got all of it's data
+                Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
+
+                if (info->opcode == WS_TEXT)
+                {
+                    for (size_t i = 0; i < info->len; i++)
+                    {
+                        msg += (char)data[i];
+                    }
+                }
+                else
+                {
+                    char buff[3];
+                    for (size_t i = 0; i < info->len; i++)
+                    {
+                        sprintf(buff, "%02x ", (uint8_t)data[i]);
+                        msg += buff;
+                    }
+                }
+                Serial.printf("%s\n", msg.c_str());
+
+                if (info->opcode == WS_TEXT)
+                    client->text("I got your text message");
+                else
+                    client->binary("I got your binary message");
+            }
+            else
+            {
+                // message is comprised of multiple frames or the frame is split into multiple packets
+                if (info->index == 0)
+                {
+                    if (info->num == 0)
+                        Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
+                    Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+                }
+
+                Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT) ? "text" : "binary", info->index, info->index + len);
+
+                if (info->opcode == WS_TEXT)
+                {
+                    for (size_t i = 0; i < len; i++)
+                    {
+                        msg += (char)data[i];
+                    }
+                }
+                else
+                {
+                    char buff[3];
+                    for (size_t i = 0; i < len; i++)
+                    {
+                        sprintf(buff, "%02x ", (uint8_t)data[i]);
+                        msg += buff;
+                    }
+                }
+                Serial.printf("%s\n", msg.c_str());
+
+                if ((info->index + len) == info->len)
+                {
+                    Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+                    if (info->final)
+                    {
+                        Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
+                        if (info->message_opcode == WS_TEXT)
+                            client->text("I got your text message");
+                        else
+                            client->binary("I got your binary message");
+                    }
+                }
+            }
+        }
+    }
 
     const byte MAX_SSID_WIFI = 4;
     const String default_websocketHost = "wss://open-community-safety.herokuapp.com/ws/device";
@@ -40,6 +139,9 @@ namespace ocs
     const char json_key_status[7] = "status";
     const char json_key_value[6] = "value";
     const char json_key_geo[4] = "geo";
+    const char json_key_info[5] = "info";
+    const char json_key_function[3] = "fn";
+    ; // json_key_info
     // const char json_key_outputs[8] = "outputs";
     // const char json_key_inputs[7] = "inputs";
 
@@ -132,12 +234,14 @@ namespace ocs
         DynamicJsonDocument getConfigInputs()
         {
 
-            DynamicJsonDocument doc(512);
+            DynamicJsonDocument doc(1024);
 
             for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
             {
                 doc[i] = this->input[i].toJson();
             }
+            Serial.println("*******INPUTS**********");
+            serializeJsonPretty(doc, Serial);
             return doc;
         }
 
@@ -152,7 +256,6 @@ namespace ocs
 
         DynamicJsonDocument getConfigoutputs()
         {
-
             DynamicJsonDocument doc(512);
             doc[json_key_led] = this->led;
             for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
@@ -230,13 +333,15 @@ namespace ocs
         {
 
             Serial.println(F("----- Config fromJson -----"));
-            this->setConfigInfo(data[F("info")]);
+            this->setConfigInfo(data[json_key_info]);
             this->setConfigWifi(data[ocs::json_key_wf]);
             this->setConfigInputs(data[ocs::json_key_input]);
             this->setConfigoutputs(data[ocs::json_key_output]);
             this->setConfigGeolocation(data[json_key_geo]);
             this->caCert_fingerPrint = data[json_key_caCert_fingerPrint].as<String>();
             this->setDefault();
+            Serial.println("--------- CONFIG FROM JSON -------------");
+            serializeJsonPretty(data, Serial);
         }
 
         void printMemory()
@@ -290,14 +395,15 @@ namespace ocs
 #endif
 
             DynamicJsonDocument doc(4096);
-            doc[F("info")] = this->getInfo();
+            doc[json_key_info] = this->getInfo();
             doc[json_key_geo] = this->getGeolocation();
             doc[F("MAX_SSID_WIFI")] = ocs::MAX_SSID_WIFI;
             doc[ocs::json_key_wf] = this->getConfigWifi();
             doc[ocs::json_key_input] = this->getConfigInputs();
             doc[ocs::json_key_output] = this->getConfigoutputs();
             doc[json_key_caCert_fingerPrint] = this->caCert_fingerPrint;
-
+            Serial.println("--------- CONFIG TO JSON -------------");
+            serializeJsonPretty(doc, Serial);
             return doc;
         }
 
@@ -353,6 +459,19 @@ namespace ocs
 
         void loop()
         {
+            if (millis() - this->interval_send_status_last > this->interval_send_status)
+            {
+                DynamicJsonDocument docStatus(512);
+                docStatus[json_key_status] = json_key_input;
+                docStatus[json_key_value] = this->statusInputs();
+                ws.textAll(DynamicJsonToString(docStatus));
+                docStatus.clear();
+                docStatus[json_key_status] = json_key_output;
+                docStatus[json_key_value] = this->statusOutputs();
+                ws.textAll(DynamicJsonToString(docStatus));
+                docStatus.clear();
+                this->interval_send_status_last = millis();
+            }
 
             // let the websockets client check for incoming messages
             if (this->wsclient.available())
@@ -413,6 +532,8 @@ namespace ocs
                     this->ConfigParameter.saveLocalStorage();
                 }
             }
+
+            ws.cleanupClients();
         }
 
         DynamicJsonDocument setFromJson(DynamicJsonDocument json)
@@ -446,6 +567,8 @@ namespace ocs
 
         void begin()
         {
+            ws.onEvent(onWsEvent);
+            ocsWebAdmin.addHandler(&ws);
             ocsWebAdmin.begin();
         }
 
@@ -522,9 +645,9 @@ namespace ocs
             for (byte i = 0; i < ocs::MAX_INPUTS; i = i + 1)
             {
                 // doc[i] = this->inputs[i].toJson();
-                doc[json_key_gpio] = this->inputs[i].config.gpio;
-                doc[json_key_status] = this->inputs[i].status;
-                doc[json_key_value] = this->inputs[i].getvalue();
+                doc[i][json_key_gpio] = this->inputs[i].config.gpio;
+                doc[i][json_key_status] = this->inputs[i].status;
+                doc[i][json_key_value] = this->inputs[i].getvalue();
             }
 
             return doc;
@@ -537,9 +660,9 @@ namespace ocs
             for (byte i = 0; i < ocs::MAX_OUTPUTS; i = i + 1)
             {
                 // doc[i] = this->inputs[i].toJson();
-                doc[json_key_output][json_key_gpio] = this->outputs[i].getGPIO();
-                doc[json_key_output][json_key_status] = this->outputs[i].getState();
-                doc[json_key_output][json_key_enabled] = this->outputs[i].enabled;
+                doc[json_key_output][i][json_key_gpio] = this->outputs[i].getGPIO();
+                doc[json_key_output][i][json_key_status] = this->outputs[i].getState();
+                doc[json_key_output][i][json_key_enabled] = this->outputs[i].enabled;
             }
 
             return doc;
@@ -554,7 +677,9 @@ namespace ocs
         unsigned long intervalWsPing = 50000;
         unsigned long last_time_ws_ping = 0;
         unsigned long last_time_check_config_changed = 0;
-        unsigned long interval_check_config_changed = 5000;
+        unsigned long interval_check_config_changed = 50000;
+        unsigned long interval_send_status = 1000;
+        unsigned long interval_send_status_last = 0;
         // char body_json_data_tmp[4096]  = {};
         // char variableName[4096]  = {};
 
