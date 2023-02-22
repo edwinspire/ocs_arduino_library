@@ -240,8 +240,8 @@ namespace ocs
             {
                 doc[i] = this->input[i].toJson();
             }
-            Serial.println("*******INPUTS**********");
-            serializeJsonPretty(doc, Serial);
+          //  Serial.println("*******INPUTS**********");
+          //  serializeJsonPretty(doc, Serial);
             return doc;
         }
 
@@ -332,7 +332,7 @@ namespace ocs
         void fromJson(const DynamicJsonDocument &data)
         {
 
-            Serial.println(F("----- Config fromJson -----"));
+            //Serial.println(F("----- Config fromJson -----"));
             this->setConfigInfo(data[json_key_info]);
             this->setConfigWifi(data[ocs::json_key_wf]);
             this->setConfigInputs(data[ocs::json_key_input]);
@@ -340,8 +340,8 @@ namespace ocs
             this->setConfigGeolocation(data[json_key_geo]);
             this->caCert_fingerPrint = data[json_key_caCert_fingerPrint].as<String>();
             this->setDefault();
-            Serial.println("--------- CONFIG FROM JSON -------------");
-            serializeJsonPretty(data, Serial);
+            //Serial.println("--------- CONFIG FROM JSON -------------");
+            //serializeJsonPretty(data, Serial);
         }
 
         void printMemory()
@@ -402,8 +402,8 @@ namespace ocs
             doc[ocs::json_key_input] = this->getConfigInputs();
             doc[ocs::json_key_output] = this->getConfigoutputs();
             doc[json_key_caCert_fingerPrint] = this->caCert_fingerPrint;
-            Serial.println("--------- CONFIG TO JSON -------------");
-            serializeJsonPretty(doc, Serial);
+            //Serial.println("--------- CONFIG TO JSON -------------");
+            //serializeJsonPretty(doc, Serial);
             return doc;
         }
 
@@ -429,6 +429,8 @@ namespace ocs
 
     public:
         Config ConfigParameter;
+        String ip;
+        String ssid;
 
         void setAlarm(ocs::input::SirenType at)
         {
@@ -459,6 +461,7 @@ namespace ocs
 
         void loop()
         {
+            // Envia estado de las entradas y salidas 
             if (millis() - this->interval_send_status_last > this->interval_send_status)
             {
                 DynamicJsonDocument docStatus(512);
@@ -514,7 +517,7 @@ namespace ocs
                     doc[json_key_event][F("input")] = this->inputs[i].toJson();
                     doc[json_key_event][json_key_latitude] = this->ConfigParameter.latitude;
                     doc[json_key_event][json_key_longitude] = this->ConfigParameter.longitude;
-                    doc[json_key_event][F("allowActivationByGeolocation")] = this->ConfigParameter.allowActivationByGeolocation;
+                    doc[json_key_event][json_key_acbgl] = this->ConfigParameter.allowActivationByGeolocation;
 
                     // Serial.println(F("this->inputs[i].changed() => "));
                     // serializeJsonPretty(doc, Serial);
@@ -709,7 +712,7 @@ namespace ocs
         // set geolocation
         AsyncCallbackJsonWebHandler *handlerdevgeoPost = new AsyncCallbackJsonWebHandler("/device/geolocation", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                          { 
-                                                                                          serializeJsonPretty(json, Serial);
+                                                                                        //  serializeJsonPretty(json, Serial);
                                                                                           this->ConfigParameter.latitude = json[json_key_latitude].as<String>(); 
                                                                                           this->ConfigParameter.longitude = json[json_key_longitude].as<String>(); 
                                                                                           this->ConfigParameter.allowActivationByGeolocation = json[json_key_acbgl].as<boolean>(); 
@@ -719,14 +722,14 @@ namespace ocs
         // set wifi
         AsyncCallbackJsonWebHandler *handlerdevwifiPost = new AsyncCallbackJsonWebHandler("/device/wifi", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                           { 
-                                                                                          serializeJsonPretty(json, Serial);
+                                                                                       //   serializeJsonPretty(json, Serial);
                                                                                         this->ConfigParameter.setConfigWifi(json);
                                                                                         this->existsConfigChanged = true;
                                                                                 request->send(200, json_key_mime_json, "{}"); });
         // set inputs
         AsyncCallbackJsonWebHandler *handlerdevInputsPost = new AsyncCallbackJsonWebHandler("/device/inputs", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                             { 
-                                                                                          serializeJsonPretty(json, Serial);
+                                                                             //             serializeJsonPretty(json, Serial);
                                                                                         this->ConfigParameter.setConfigInputs(json);
                                                                                         this->existsConfigChanged = true;
                                                                                 request->send(200, json_key_mime_json, "{}"); });
@@ -734,7 +737,7 @@ namespace ocs
         // set outputs
         AsyncCallbackJsonWebHandler *handlerdevOutputsPost = new AsyncCallbackJsonWebHandler("/device/outputs", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                              { 
-                                                                                          serializeJsonPretty(json, Serial);
+                                                                                 //         serializeJsonPretty(json, Serial);
                                                                                         this->ConfigParameter.setConfigoutputs(json);
                                                                                         this->existsConfigChanged = true;
                                                                                 request->send(200, json_key_mime_json, "{}"); });
@@ -742,7 +745,7 @@ namespace ocs
         // set cert
         AsyncCallbackJsonWebHandler *handlerCertPost = new AsyncCallbackJsonWebHandler("/device/cert", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                        { 
-                                                                                          serializeJsonPretty(json, Serial);
+                                                                            //              serializeJsonPretty(json, Serial);
                                                                                         this->ConfigParameter.caCert_fingerPrint = json[json_key_caCert_fingerPrint].as<String>();
                                                                                         this->existsConfigChanged = true;
                                                                                 request->send(200, json_key_mime_json, "{}"); });
@@ -751,14 +754,6 @@ namespace ocs
         {
 
             ocsWebAdmin.setup();
-
-            // Get status inputs
-            ocsWebAdmin.on("/device/inputs/status", HTTP_GET, [&](AsyncWebServerRequest *request)
-                           { request->send(200, json_key_mime_json, DynamicJsonToString(this->statusInputs())); });
-
-            // get output status
-            ocsWebAdmin.on("/device/outputs/status", HTTP_GET, [&](AsyncWebServerRequest *request)
-                           { request->send(200, json_key_mime_json, DynamicJsonToString(this->statusOutputs())); });
 
             // get device info
             ocsWebAdmin.on("/device/info", HTTP_GET, [&](AsyncWebServerRequest *request)
@@ -937,6 +932,10 @@ namespace ocs
                 Serial.println(F("Response configuration ..."));
                 DynamicJsonDocument doc(4096);
                 doc[F("data")] = this->toJson();
+                doc[F("data")][json_key_wf] = (char*)0; // Quitamos wf
+                doc[F("data")][json_key_caCert_fingerPrint] = (char*)0; // Quitamos cfp
+                doc[F("data")][json_key_info][F("ip")] = this->ip;
+                doc[F("data")][json_key_info][F("ssid")] = this->ssid; 
                 doc[F("response")] = 1000;
                 String outputJson = "";
                 serializeJson(doc, outputJson);
