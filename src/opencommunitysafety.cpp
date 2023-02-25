@@ -5,6 +5,7 @@
 #include "AsyncJson.h"
 #include "Inputpin.cpp"
 #include "LocalStore.cpp"
+#include <Interval.cpp>
 
 using namespace websockets;
 
@@ -240,8 +241,8 @@ namespace ocs
             {
                 doc[i] = this->input[i].toJson();
             }
-          //  Serial.println("*******INPUTS**********");
-          //  serializeJsonPretty(doc, Serial);
+            //  Serial.println("*******INPUTS**********");
+            //  serializeJsonPretty(doc, Serial);
             return doc;
         }
 
@@ -332,7 +333,7 @@ namespace ocs
         void fromJson(const DynamicJsonDocument &data)
         {
 
-            //Serial.println(F("----- Config fromJson -----"));
+            // Serial.println(F("----- Config fromJson -----"));
             this->setConfigInfo(data[json_key_info]);
             this->setConfigWifi(data[ocs::json_key_wf]);
             this->setConfigInputs(data[ocs::json_key_input]);
@@ -340,8 +341,8 @@ namespace ocs
             this->setConfigGeolocation(data[json_key_geo]);
             this->caCert_fingerPrint = data[json_key_caCert_fingerPrint].as<String>();
             this->setDefault();
-            //Serial.println("--------- CONFIG FROM JSON -------------");
-            //serializeJsonPretty(data, Serial);
+            // Serial.println("--------- CONFIG FROM JSON -------------");
+            // serializeJsonPretty(data, Serial);
         }
 
         void printMemory()
@@ -402,8 +403,8 @@ namespace ocs
             doc[ocs::json_key_input] = this->getConfigInputs();
             doc[ocs::json_key_output] = this->getConfigoutputs();
             doc[json_key_caCert_fingerPrint] = this->caCert_fingerPrint;
-            //Serial.println("--------- CONFIG TO JSON -------------");
-            //serializeJsonPretty(doc, Serial);
+            // Serial.println("--------- CONFIG TO JSON -------------");
+            // serializeJsonPretty(doc, Serial);
             return doc;
         }
 
@@ -461,7 +462,9 @@ namespace ocs
 
         void loop()
         {
-            // Envia estado de las entradas y salidas 
+            /*
+
+            // Envia estado de las entradas y salidas
             if (millis() - this->interval_send_status_last > this->interval_send_status)
             {
                 DynamicJsonDocument docStatus(512);
@@ -475,18 +478,25 @@ namespace ocs
                 docStatus.clear();
                 this->interval_send_status_last = millis();
             }
-
+            */
+            // Comentario
+             
+            interval_ws_status_io.loop();
+            interval_check_config_changed.loop();
             // let the websockets client check for incoming messages
             if (this->wsclient.available())
             {
                 // ESP.wdtFeed();
                 this->wsclient.poll();
-                if (millis() - this->last_time_ws_ping > this->intervalWsPing)
-                {
-                    this->wsclient.ping();
-                    this->last_time_ws_ping = millis();
-                    this->led.blink(1500, 1000, 500, 10);
-                }
+                interval_ws_ping.loop();
+                /*
+                                if (millis() - this->last_time_ws_ping > this->intervalWsPing)
+                                {
+                                    this->wsclient.ping();
+                                    this->last_time_ws_ping = millis();
+                                    this->led.blink(1500, 1000, 500, 10);
+                                }
+                                */
             }
             else
             {
@@ -526,15 +536,17 @@ namespace ocs
                 }
             }
 
-            if (millis() - this->last_time_check_config_changed > this->interval_check_config_changed)
-            {
-                this->interval_check_config_changed = millis();
-                if (this->existsConfigChanged)
-                {
-                    this->existsConfigChanged = false;
-                    this->ConfigParameter.saveLocalStorage();
-                }
-            }
+            /*
+                        if (millis() - this->last_time_check_config_changed > this->interval_check_config_changed)
+                        {
+                            this->interval_check_config_changed = millis();
+                            if (this->existsConfigChanged)
+                            {
+                                this->existsConfigChanged = false;
+                                this->ConfigParameter.saveLocalStorage();
+                            }
+                        }
+                        */
 
             ws.cleanupClients();
         }
@@ -608,6 +620,33 @@ namespace ocs
             this->setUpWebAdmin();
             this->setUpwebSocket();
 
+            interval_check_config_changed.setup(30000, [&]()
+                                                {
+ if (this->existsConfigChanged)
+                {
+                    this->existsConfigChanged = false;
+                    this->ConfigParameter.saveLocalStorage();
+                } });
+
+            interval_ws_ping.setup(50000, [&]()
+                                   {
+                                    this->wsclient.ping();
+                                    this->led.blink(1500, 1000, 500, 10); });
+
+            interval_ws_status_io.setup(1000, [&]()
+                                        {
+// Serial.println(F("interval_ws_status_io ... "));
+            DynamicJsonDocument docStatus(512);
+            docStatus[json_key_status] = json_key_input;
+            docStatus[json_key_value] = this->statusInputs();
+            ws.textAll(DynamicJsonToString(docStatus));
+            docStatus.clear();
+            docStatus[json_key_status] = json_key_output;
+            docStatus[json_key_value] = this->statusOutputs();
+            ws.textAll(DynamicJsonToString(docStatus));
+            docStatus.clear(); });
+
+/*
             this->led.high();
             delay(800);
             this->led.low();
@@ -619,6 +658,7 @@ namespace ocs
             this->led.high();
             delay(800);
             this->led.low();
+            */
         }
 
         void
@@ -677,12 +717,17 @@ namespace ocs
         edwinspire::OutputPin outputs[ocs::MAX_OUTPUTS];
         edwinspire::OutputPin led;
         ocs::input::Input inputs[ocs::MAX_INPUTS];
-        unsigned long intervalWsPing = 50000;
-        unsigned long last_time_ws_ping = 0;
-        unsigned long last_time_check_config_changed = 0;
-        unsigned long interval_check_config_changed = 50000;
-        unsigned long interval_send_status = 1000;
-        unsigned long interval_send_status_last = 0;
+        // unsigned long intervalWsPing = 50000;
+        // unsigned long last_time_ws_ping = 0;
+        edwinspire::Interval interval_ws_ping;
+
+        // unsigned long last_time_check_config_changed = 0;
+        // unsigned long interval_check_config_changed = 50000;
+        edwinspire::Interval interval_check_config_changed;
+
+        // unsigned long interval_send_status = 1000;
+        // unsigned long interval_send_status_last = 0;
+        edwinspire::Interval interval_ws_status_io;
         // char body_json_data_tmp[4096]  = {};
         // char variableName[4096]  = {};
 
@@ -932,10 +977,10 @@ namespace ocs
                 Serial.println(F("Response configuration ..."));
                 DynamicJsonDocument doc(4096);
                 doc[F("data")] = this->toJson();
-                doc[F("data")][json_key_wf] = (char*)0; // Quitamos wf
-                doc[F("data")][json_key_caCert_fingerPrint] = (char*)0; // Quitamos cfp
+                doc[F("data")][json_key_wf] = (char *)0;                 // Quitamos wf
+                doc[F("data")][json_key_caCert_fingerPrint] = (char *)0; // Quitamos cfp
                 doc[F("data")][json_key_info][F("ip")] = this->ip;
-                doc[F("data")][json_key_info][F("ssid")] = this->ssid; 
+                doc[F("data")][json_key_info][F("ssid")] = this->ssid;
                 doc[F("response")] = 1000;
                 String outputJson = "";
                 serializeJson(doc, outputJson);

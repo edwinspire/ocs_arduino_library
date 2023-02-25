@@ -48,7 +48,7 @@ namespace ocs
             // Serial.print("6");
             EEPROM.end();
             Serial.print(F("EEPROM Data: "));
-            Serial.println(eeprom_data);
+//            Serial.println(eeprom_data);
 
             if (!validateJson(eeprom_data))
             {
@@ -119,7 +119,7 @@ namespace ocs
             else
             {
                 Serial.println(F("LOCALSTORAGE :==> Read"));
-                serializeJsonPretty(doc, Serial);
+                //serializeJsonPretty(doc, Serial);
             }
 
             return doc;

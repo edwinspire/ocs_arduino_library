@@ -4,6 +4,9 @@
 namespace edwinspire
 {
 
+#ifndef EDWINSPIRE_INTERVAL_CLASS
+#define EDWINSPIRE_INTERVAL_CLASS
+
     class Interval
     {
 
@@ -32,4 +35,5 @@ namespace edwinspire
             }
         }
     };
+#endif
 };
