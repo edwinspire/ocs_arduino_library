@@ -67,23 +67,6 @@ namespace ocs
 
         static DynamicJsonDocument read()
         {
-/*
-            char eeprom_data[ocs::EEPROM_SIZE_DEFAULT];
-            EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT); // tamaño maximo 4096 bytes
-
-            unsigned int i = 0;
-            //   Serial.print("5");
-            while (i < ocs::EEPROM_SIZE_DEFAULT)
-            {
-                eeprom_data[i] = EEPROM.read(i);
-                i++;
-            }
-            // Serial.print("6");
-            EEPROM.end();
-            Serial.print(F("EEPROM Data: "));
-            Serial.println(eeprom_data);
-*/
-
 
             DynamicJsonDocument doc(ocs::EEPROM_SIZE_DEFAULT);
             DeserializationError err = deserializeJson(doc, json());
@@ -116,11 +99,7 @@ namespace ocs
                 EEPROM.commit();
                 EEPROM.end();
             }
-            else
-            {
-                Serial.println(F("LOCALSTORAGE :==> Read"));
-                //serializeJsonPretty(doc, Serial);
-            }
+           
 
             return doc;
         }
@@ -132,7 +111,7 @@ namespace ocs
             String data_serialized = "";
             serializeJson(doc, data_serialized);
 
-            Serial.println(data_serialized);
+            //Serial.println(data_serialized);
             EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT);
 
             // Length (with one extra character for the null terminator)

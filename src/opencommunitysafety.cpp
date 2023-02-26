@@ -19,7 +19,7 @@ namespace ocs
     {
         if (type == WS_EVT_CONNECT)
         {
-            Serial.printf("ws[%s][%u] connect\n", server->url(), client->id());
+            Serial.printf("ws => [%s][%u] connect\n", server->url(), client->id());
             client->printf("{\"ClientID\": %u}", client->id());
             client->ping();
         }
@@ -379,8 +379,8 @@ namespace ocs
         DynamicJsonDocument getGeolocation()
         {
             DynamicJsonDocument doc(128);
-            doc[json_key_latitude] = this->latitude;
-            doc[json_key_longitude] = this->longitude;
+            doc[json_key_latitude] = (this->latitude == NULL) ? "0" : this->latitude;
+            doc[json_key_longitude] = (this->longitude == NULL) ? "0" : this->longitude;
             doc[json_key_acbgl] = this->allowActivationByGeolocation;
             return doc;
         }
@@ -395,7 +395,8 @@ namespace ocs
             ESP.resetHeap();
 #endif
 
-            DynamicJsonDocument doc(4096);
+            DynamicJsonDocument doc(JSON_MAX_SIZE);
+
             doc[json_key_info] = this->getInfo();
             doc[json_key_geo] = this->getGeolocation();
             doc[F("MAX_SSID_WIFI")] = ocs::MAX_SSID_WIFI;
@@ -462,45 +463,16 @@ namespace ocs
 
         void loop()
         {
-            /*
 
-            // Envia estado de las entradas y salidas
-            if (millis() - this->interval_send_status_last > this->interval_send_status)
-            {
-                DynamicJsonDocument docStatus(512);
-                docStatus[json_key_status] = json_key_input;
-                docStatus[json_key_value] = this->statusInputs();
-                ws.textAll(DynamicJsonToString(docStatus));
-                docStatus.clear();
-                docStatus[json_key_status] = json_key_output;
-                docStatus[json_key_value] = this->statusOutputs();
-                ws.textAll(DynamicJsonToString(docStatus));
-                docStatus.clear();
-                this->interval_send_status_last = millis();
-            }
-            */
-            // Comentario
-             
             interval_ws_status_io.loop();
             interval_check_config_changed.loop();
+            interval_ws_connect.loop();
             // let the websockets client check for incoming messages
             if (this->wsclient.available())
             {
                 // ESP.wdtFeed();
                 this->wsclient.poll();
                 interval_ws_ping.loop();
-                /*
-                                if (millis() - this->last_time_ws_ping > this->intervalWsPing)
-                                {
-                                    this->wsclient.ping();
-                                    this->last_time_ws_ping = millis();
-                                    this->led.blink(1500, 1000, 500, 10);
-                                }
-                                */
-            }
-            else
-            {
-                this->connectWS();
             }
 
             //  loop for outputs
@@ -529,24 +501,9 @@ namespace ocs
                     doc[json_key_event][json_key_longitude] = this->ConfigParameter.longitude;
                     doc[json_key_event][json_key_acbgl] = this->ConfigParameter.allowActivationByGeolocation;
 
-                    // Serial.println(F("this->inputs[i].changed() => "));
-                    // serializeJsonPretty(doc, Serial);
-
                     this->wssend(doc);
                 }
             }
-
-            /*
-                        if (millis() - this->last_time_check_config_changed > this->interval_check_config_changed)
-                        {
-                            this->interval_check_config_changed = millis();
-                            if (this->existsConfigChanged)
-                            {
-                                this->existsConfigChanged = false;
-                                this->ConfigParameter.saveLocalStorage();
-                            }
-                        }
-                        */
 
             ws.cleanupClients();
         }
@@ -585,6 +542,26 @@ namespace ocs
             ws.onEvent(onWsEvent);
             ocsWebAdmin.addHandler(&ws);
             ocsWebAdmin.begin();
+            this->led.blink(700, 800, 100, 5);
+        }
+
+        void connect_websocket()
+        {
+
+            Serial.println(this->ConfigParameter.websocketHostRequest);
+            bool connected = this->wsclient.connect(this->ConfigParameter.websocketHostRequest);
+
+            if (connected)
+            {
+                Serial.println(F("WS Connected"));
+                this->wsclient.send(F("{\"request\": 1000}"));
+                this->wsclient.ping();
+            }
+            else
+            {
+                Serial.println(F("WS Not Connected!"));
+                this->wsclient.close();
+            }
         }
 
         void reboot()
@@ -633,6 +610,11 @@ namespace ocs
                                     this->wsclient.ping();
                                     this->led.blink(1500, 1000, 500, 10); });
 
+            interval_ws_connect.setup(10000, [&]()
+                                      { if(!this->wsclient.available()){
+                                        this->connect_websocket();
+                                      } });
+
             interval_ws_status_io.setup(1000, [&]()
                                         {
 // Serial.println(F("interval_ws_status_io ... "));
@@ -645,40 +627,6 @@ namespace ocs
             docStatus[json_key_value] = this->statusOutputs();
             ws.textAll(DynamicJsonToString(docStatus));
             docStatus.clear(); });
-
-/*
-            this->led.high();
-            delay(800);
-            this->led.low();
-            delay(400);
-            this->led.high();
-            delay(800);
-            this->led.low();
-            delay(400);
-            this->led.high();
-            delay(800);
-            this->led.low();
-            */
-        }
-
-        void
-        connectWS()
-        {
-            delay(500);
-            Serial.println(this->ConfigParameter.websocketHostRequest);
-            bool connected = this->wsclient.connect(this->ConfigParameter.websocketHostRequest);
-
-            if (connected)
-            {
-                Serial.println(F("WS Connected"));
-                this->wsclient.send(F("{\"request\": 1000}"));
-                this->wsclient.ping();
-            }
-            else
-            {
-                Serial.println(F("WS Not Connected!"));
-                delay(1500);
-            }
         }
 
         DynamicJsonDocument statusInputs()
@@ -730,6 +678,7 @@ namespace ocs
         edwinspire::Interval interval_ws_status_io;
         // char body_json_data_tmp[4096]  = {};
         // char variableName[4096]  = {};
+        edwinspire::Interval interval_ws_connect;
 
         // bodyData bdata[3];
         String tmp_buffer_body;
@@ -744,12 +693,7 @@ namespace ocs
         // set info device
         AsyncCallbackJsonWebHandler *handlerdevInfoPost = new AsyncCallbackJsonWebHandler("/device/info", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                           { 
-                                                                                            /*
-                                                  //                                        serializeJsonPretty(json, Serial);
-                                                                                          this->ConfigParameter.deviceId = json[json_key_deviceId].as<String>(); 
-                                                                                          this->ConfigParameter.name = json[json_key_name].as<String>();
-                                                                                          this->ConfigParameter.websocketHost = json[json_key_wshost].as<String>();
-                                                                                          */  
+                                                                                            
                                                                                          this->ConfigParameter.setConfigInfo(json);
                                                                                             this->existsConfigChanged = true;
                                                                                 request->send(200, json_key_mime_json, "{}"); });
@@ -897,11 +841,11 @@ namespace ocs
                                     this->ledBlinkOnWs();
     if (event == WebsocketsEvent::ConnectionOpened)
     {
-        Serial.println(F("Connnection Opened"));
+        Serial.println(F("Connection Opened"));
     }
     else if (event == WebsocketsEvent::ConnectionClosed)
     {
-        Serial.println(F("Connnection Closed"));
+        Serial.println(F("Connection Closed"));
         Serial.print(this->wsclient.getCloseReason());
     }
     else if (event == WebsocketsEvent::GotPing)
@@ -975,7 +919,7 @@ namespace ocs
             case 1000: // Requiere datos de configuración
             {
                 Serial.println(F("Response configuration ..."));
-                DynamicJsonDocument doc(4096);
+                DynamicJsonDocument doc(JSON_MAX_SIZE);
                 doc[F("data")] = this->toJson();
                 doc[F("data")][json_key_wf] = (char *)0;                 // Quitamos wf
                 doc[F("data")][json_key_caCert_fingerPrint] = (char *)0; // Quitamos cfp
