@@ -25,7 +25,6 @@ namespace ocs
 
         void setup()
         {
-
             if (!LittleFS.begin())
             {
                 Serial.println(F("An Error has occurred while mounting LittleFS"));
@@ -33,8 +32,29 @@ namespace ocs
 
             this->serveStatic("/", LittleFS, "/build").setDefaultFile("index.html").setCacheControl("max-age=31536000");
             this->onNotFound([&](AsyncWebServerRequest *request)
-                             { request->send(404, F("text/plain"), F("Not found")); });
+                             {
+                                 if (request->method() == HTTP_OPTIONS)
+                                 {
+                                     request->send(200);
+                                 }
+                                 else
+                                 {
+                                     request->send(404);
+                                 }
+
+                                 // request->send(404, F("text/plain"), F("Not found"));
+                             });
         }
+
+        /*
+                void setCrossOrigin()
+                {
+                    this.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
+                    this->.sendHeader(F("Access-Control-Max-Age"), F("600"));
+                    server.sendHeader(F("Access-Control-Allow-Methods"), F("PUT,POST,GET,OPTIONS"));
+                    server.sendHeader(F("Access-Control-Allow-Headers"), F("*"));
+                };
+                */
 
     private:
     };

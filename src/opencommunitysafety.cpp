@@ -11,10 +11,10 @@ using namespace websockets;
 
 ocs::WebAdmin ocsWebAdmin(80);
 AsyncWebSocket ws("/ws");
+String sessions[5];
 
 namespace ocs
 {
-
     void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
     {
         if (type == WS_EVT_CONNECT)
@@ -287,6 +287,7 @@ namespace ocs
             }
             return doc;
         }
+
         void setConfigGeolocation(const DynamicJsonDocument &data)
         {
             this->latitude = data[json_key_latitude].as<String>();
@@ -419,6 +420,8 @@ namespace ocs
         String latitude;
         String longitude;
         String name;
+        String username = "ocs";
+        String password = "ocsesp32";
         bool allowActivationByGeolocation = false;
         String websocketHostRequest;
         // StaticJsonDocument<4096> * json;
@@ -541,6 +544,8 @@ namespace ocs
         {
             ws.onEvent(onWsEvent);
             ocsWebAdmin.addHandler(&ws);
+            DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+            DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "*");
             ocsWebAdmin.begin();
             this->led.blink(700, 800, 100, 5);
         }
@@ -683,6 +688,43 @@ namespace ocs
         // bodyData bdata[3];
         String tmp_buffer_body;
 
+        String GenSessionID(String username)
+        {
+            char chararray[20];
+            String SessionID = "";
+            for (byte i = 0; i < 20; i = i + 1)
+            {
+
+                chararray[i] = random(33, 126);
+
+                // Serial.println(chararray[i]);
+                // Serial.println((uint8_t)chararray[i]);
+
+                if (chararray[i] == 34 || chararray[i] == 39 || chararray[i] == 92 || chararray[i] == 36 || chararray[i] == 96)
+                {
+                    chararray[i] = 64;
+                }
+            }
+            SessionID = chararray;
+            return (username.substring(0, 3) + SessionID).substring(0, 20);
+        }
+
+        bool CheckToken(AsyncWebServerRequest *request)
+        {
+            // get specific header by name
+            if (request->hasHeader("token"))
+            {
+                AsyncWebHeader *h = request->getHeader("token");
+                Serial.printf("token: %s\n", h->value().c_str());
+
+                if (sessions[0] == h->value().c_str())
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         String DynamicJsonToString(DynamicJsonDocument doc)
         {
             String outputJson = "";
@@ -691,12 +733,28 @@ namespace ocs
         }
 
         // set info device
+        AsyncCallbackJsonWebHandler *handlerdevLoginPost = new AsyncCallbackJsonWebHandler("/device/login", [&](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                           {
+                                                                                               if (json[F("u")].as<String>() == this->ConfigParameter.username && json[F("p")].as<String>() == this->ConfigParameter.password)
+                                                                                               {
+             
+String sessionid = GenSessionID(this->ConfigParameter.username);
+sessions[0] = sessionid;
+AsyncWebServerResponse *response = request->beginResponse(200, JSON_MIMETYPE, "{\"token\": \"" + sessionid + "\"}");
+response->addHeader("token", sessionid);
+request->send(response);
+                                                                                             }
+                                                                                               else
+                                                                                               {
+                                                                                                   request->send(401, json_key_mime_json, "{}");
+                                                                                               } });
+
+        // set info device
         AsyncCallbackJsonWebHandler *handlerdevInfoPost = new AsyncCallbackJsonWebHandler("/device/info", [&](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                                          { 
-                                                                                            
-                                                                                         this->ConfigParameter.setConfigInfo(json);
-                                                                                            this->existsConfigChanged = true;
-                                                                                request->send(200, json_key_mime_json, "{}"); });
+                                                                                          {
+                                                                                              this->ConfigParameter.setConfigInfo(json);
+                                                                                              this->existsConfigChanged = true;
+                                                                                              request->send(200, json_key_mime_json, "{}"); });
 
         // set geolocation
         AsyncCallbackJsonWebHandler *handlerdevgeoPost = new AsyncCallbackJsonWebHandler("/device/geolocation", [&](AsyncWebServerRequest *request, JsonVariant &json)
@@ -743,10 +801,20 @@ namespace ocs
         {
 
             ocsWebAdmin.setup();
+            // ocsWebAdmin.enableCORS(true);
+            ocsWebAdmin.addHandler(handlerdevLoginPost);
 
             // get device info
             ocsWebAdmin.on("/device/info", HTTP_GET, [&](AsyncWebServerRequest *request)
-                           { request->send(200, json_key_mime_json, DynamicJsonToString(this->ConfigParameter.getInfo())); });
+                           {
+                               if (CheckToken(request))
+                               {
+                                request->send(200, json_key_mime_json, DynamicJsonToString(this->ConfigParameter.getInfo()));
+                               }
+                               else
+                               {
+                                   request->send(403, json_key_mime_json, "{}");
+                               } });
 
             // set device info
             ocsWebAdmin.addHandler(handlerdevInfoPost);
