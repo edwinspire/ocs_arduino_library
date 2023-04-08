@@ -16,23 +16,14 @@ namespace ocs
 
     private:
     public:
-        DynamicJsonDocument data;
-
-        LocalStore() : data(ocs::EEPROM_SIZE_DEFAULT) {}
-
-        static bool validateJson(const char *json)
+        static char *json()
         {
-            StaticJsonDocument<0> doc, filter;
-            return deserializeJson(doc, json, DeserializationOption::Filter(filter)) == DeserializationError::Ok;
+            static char json[ocs::EEPROM_SIZE_DEFAULT];
+            serializeJson(read(), json, ocs::EEPROM_SIZE_DEFAULT);
+            return json;
         }
 
-        static bool validateJson(char json[])
-        {
-            StaticJsonDocument<0> doc, filter;
-            return deserializeJson(doc, json, DeserializationOption::Filter(filter)) == DeserializationError::Ok;
-        }
-
-        static String json()
+        static DynamicJsonDocument read()
         {
 
             char eeprom_data[ocs::EEPROM_SIZE_DEFAULT];
@@ -47,71 +38,38 @@ namespace ocs
             }
             // Serial.print("6");
             EEPROM.end();
+
+            // eeprom_data[ocs::EEPROM_SIZE_DEFAULT] = '\0';
+
             Serial.print(F("EEPROM Data: "));
-//            Serial.println(eeprom_data);
-
-            if (!validateJson(eeprom_data))
-            {
-
-                eeprom_data[0] = '{';
-                eeprom_data[1] = '}';
-                eeprom_data[2] = '\0';
-            }
-            else
-            {
-                Serial.println(eeprom_data);
-            }
-
-            return eeprom_data;
-        }
-
-        static DynamicJsonDocument read()
-        {
+            Serial.println(eeprom_data);
 
             DynamicJsonDocument doc(ocs::EEPROM_SIZE_DEFAULT);
-            DeserializationError err = deserializeJson(doc, json());
-            // Serial.print("8");
+            DeserializationError err = deserializeJson(doc, eeprom_data);
+
             if (err)
             {
                 Serial.print(F("read deserializeJson() failed: "));
                 Serial.println(err.c_str());
-
-                EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT); // tamaño maximo 4096 bytes
-                // char default_json[2] = "{}";
-                unsigned int i = 0;
-                while (i < ocs::EEPROM_SIZE_DEFAULT)
-                {
-                    if (i == 0)
-                    {
-                        EEPROM.write(i, '{');
-                    }
-                    else if (i == 1)
-                    {
-                        EEPROM.write(i, '}');
-                    }
-                    else
-                    {
-                        EEPROM.write(i, 255);
-                    }
-
-                    i++;
-                }
-                EEPROM.commit();
-                EEPROM.end();
+                DynamicJsonDocument doc_default(8);
+                doc_default[F("ocs")] = "empty";
+                save(doc_default);
+                doc_default.clear();
             }
-           
 
             return doc;
         }
 
-        static bool save(const DynamicJsonDocument & doc)
+        static bool save(const DynamicJsonDocument &doc)
         {
             bool r = false;
             Serial.println(F("--> Save - Cambios pendientes "));
             String data_serialized = "";
             serializeJson(doc, data_serialized);
 
-            //Serial.println(data_serialized);
+            Serial.println(data_serialized);
+
+            // Serial.println(data_serialized);
             EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT);
 
             // Length (with one extra character for the null terminator)

@@ -3,7 +3,7 @@
 namespace edwinspire
 {
 
-    enum BlinkState
+    enum BlinkState : uint8_t
     {
         DISABLE = 0,
         DELAY = 1,
@@ -48,8 +48,8 @@ namespace edwinspire
             if (this->enabled)
             {
                 pinMode(this->_outputPin, OUTPUT);
-                Serial.print(F("OUTPUT => "));
-                Serial.println(OUTPUT);
+                //  Serial.print(F("OUTPUT => "));
+                //  Serial.println(OUTPUT);
             }
         }
 
@@ -59,8 +59,8 @@ namespace edwinspire
             {
                 this->_blinkState = BlinkState::DISABLE;
                 this->_outputState = HIGH;
-                Serial.println("HIGH");
-                Serial.println(HIGH);
+                // Serial.println("HIGH");
+                // Serial.println(HIGH);
                 digitalWrite(this->_outputPin, this->_outputState);
             }
         }
