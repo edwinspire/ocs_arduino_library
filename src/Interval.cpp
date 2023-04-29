@@ -16,7 +16,7 @@ namespace edwinspire
         std::function<void()> callback;
 
     public:
-        void setup(ulong interval, std::function<void()> callback)
+        void setup(unsigned long interval, std::function<void()> callback)
         {
             this->interval = interval;
             this->callback = callback;

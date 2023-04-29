@@ -78,7 +78,7 @@ namespace ocs
                 }
             }
 
-            void fromJson(DynamicJsonDocument data)
+            void fromJson(JsonVariant data)
             {
 
                 this->set_default();
