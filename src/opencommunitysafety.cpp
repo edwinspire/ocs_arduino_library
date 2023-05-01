@@ -469,19 +469,12 @@ namespace ocs
 
         void wssend(DynamicJsonDocument &json_doc)
         {
-            String outputJson = "";
-            serializeJson(json_doc, outputJson);
-            //  Serial.println(F("wssend >= "));
-            //  serializeJsonPretty(json_doc, Serial);
-            this->wsclient.send(outputJson);
+            this->wsclient.send(DynamicJsonToString(json_doc));
         }
 
         void begin()
         {
-            // ws.onEvent(onWsEvent);
-            // ocsWebAdmin.addHandler(&ws);
-
-            ocsWebAdmin.begin();
+            ocsWebAdmin.start();
             this->led.blink(700, 800, 100, 5);
         }
 
@@ -528,14 +521,16 @@ namespace ocs
             c.fromLocalStore();
             this->setup(c);
             // Iniciar mDNS a direccion device.local
-            ocsWebAdmin.setAdminPwd(c.password_admin);
-            ocsWebAdmin.setUserPwd(c.password_user);
+            ocsWebAdmin.setAdminPwd(c.password_admin.c_str());
+            ocsWebAdmin.setUserPwd(c.password_user.c_str());
 
             if (c.domainName.length() >= 10)
             {
                 if (!MDNS.begin(c.domainName))
                 {
                     Serial.println("Error iniciando mDNS");
+                }else{
+                    Serial.println(c.domainName);
                 }
             }
             else
@@ -582,11 +577,11 @@ namespace ocs
             DynamicJsonDocument docStatus(512);
             docStatus[json_key_status] = json_key_input;
             docStatus[json_key_value] = this->statusInputs();
-            ocsWebAdmin.wsTextAll(DynamicJsonToString(docStatus));
+            ocsWebAdmin.wsTextAll(DynamicJsonToString(docStatus).c_str());
             docStatus.clear();
             docStatus[json_key_status] = json_key_output;
             docStatus[json_key_value] = this->statusOutputs();
-            ocsWebAdmin.wsTextAll(DynamicJsonToString(docStatus));
+            ocsWebAdmin.wsTextAll(DynamicJsonToString(docStatus).c_str());
             docStatus.clear(); });
         }
 
@@ -621,37 +616,33 @@ namespace ocs
         }
 
     private:
-        bool changePassword(byte user, String old_pwd, String new_pwd)
+        bool changePassword(bool isAdmin, const char *old_pwd, const char *new_pwd)
         {
 
             bool r = false;
 
-            if (this->checkPassword(user, old_pwd))
+            if (ocsWebAdmin.checkPassword(isAdmin, old_pwd))
             {
                 // Serial.println('Clave válida');
-                if (user == 0)
+                if (isAdmin)
                 {
                     this->ConfigParameter.password_admin = new_pwd;
                     r = true;
                     this->existsConfigChanged = true;
+                    ocsWebAdmin.setAdminPwd(new_pwd);
                 }
-                else if (user == 1)
+                else
                 {
                     this->ConfigParameter.password_user = new_pwd;
                     r = true;
                     this->existsConfigChanged = true;
+                    ocsWebAdmin.setUserPwd(new_pwd);
                 }
             }
 
             return r;
         }
 
-        bool checkPassword(byte user, String pwd)
-        {
-            serializeJsonPretty(this->ConfigParameter.toJson(), Serial);
-
-            return (user == 0 && this->ConfigParameter.password_admin == pwd) || (user == 1 && this->ConfigParameter.password_user == pwd);
-        }
         WebsocketsClient wsclient;
         bool existsConfigChanged = false;
         edwinspire::OutputPin outputs[MAX_OUTPUTS];
@@ -673,9 +664,9 @@ namespace ocs
         edwinspire::Interval interval_ws_connect;
 
         // bodyData bdata[3];
-        String tmp_buffer_body;
+        // String tmp_buffer_body;
 
-        String DynamicJsonToString(DynamicJsonDocument doc)
+        String DynamicJsonToString(JsonVariantConst doc)
         {
             String outputJson = "";
             serializeJson(doc, outputJson);
@@ -684,11 +675,9 @@ namespace ocs
 
         AsyncCallbackJsonWebHandler *handlerdevChangePwdPost = new AsyncCallbackJsonWebHandler("/device/pwd/change", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                                {
-
-
                             if (ocsWebAdmin.CheckToken(request))
                                {
-                                       AsyncWebServerResponse *response = request->beginResponse(200, JSON_MIMETYPE, "{\"change\": \"" + String(this->changePassword(json[F("u")].as<byte>(), json[F("p")].as<String>(), json[F("np")].as<String>())) + "\"}");
+                                       AsyncWebServerResponse *response = request->beginResponse(200, JSON_MIMETYPE, "{\"change\": \"" + String(this->changePassword(json[F("u")].as<byte>(), json[F("p")].as<String>().c_str(), json[F("np")].as<String>().c_str())) + "\"}");
                                        request->send(response);
                                } });
 
@@ -696,7 +685,7 @@ namespace ocs
         AsyncCallbackJsonWebHandler *handlerdevLoginPost = new AsyncCallbackJsonWebHandler("/device/login", [&](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                            { 
                                                                                             char * token;
-                                                                                            ocsWebAdmin.login(json[F("u")].as<byte>() == 1, json[F("p")].as<String>(), request, token); });
+                                                                                            ocsWebAdmin.login(json[F("u")].as<byte>() == 1, json[F("p")].as<String>().c_str(), request, token); });
 
         // set info device
         AsyncCallbackJsonWebHandler *handlerdevInfoPost = new AsyncCallbackJsonWebHandler("/device/info", [&](AsyncWebServerRequest *request, JsonVariant &json)
@@ -705,7 +694,7 @@ namespace ocs
                                                                                               {
                                                                                                   this->ConfigParameter.setConfigInfo(json);
                                                                                                   this->existsConfigChanged = true;
-                                                                                                  request->send(200, MIMETYPE_JSON, "{}");
+                                                                                                  request->send(200, JSON_MIMETYPE, "{}");
                                                                                               } });
 
         // set geolocation
@@ -717,7 +706,7 @@ namespace ocs
                                                                                                  this->ConfigParameter.longitude = json[json_key_longitude].as<String>();
                                                                                                  this->ConfigParameter.allowActivationByGeolocation = json[json_key_acbgl].as<boolean>();
                                                                                                  this->existsConfigChanged = true;
-                                                                                                 request->send(200, MIMETYPE_JSON, "{}");
+                                                                                                 request->send(200, JSON_MIMETYPE, "{}");
                                                                                              }
                                                                                              //  serializeJsonPretty(json, Serial);
                                                                                          });
@@ -729,7 +718,7 @@ namespace ocs
                                                                                               {
                                                                                                   this->ConfigParameter.setConfigWifi(json);
                                                                                                   this->existsConfigChanged = true;
-                                                                                                  request->send(200, MIMETYPE_JSON, "{}");
+                                                                                                  request->send(200, JSON_MIMETYPE, "{}");
                                                                                               } });
         // set inputs
         AsyncCallbackJsonWebHandler *handlerdevInputsPost = new AsyncCallbackJsonWebHandler("/device/inputs", [&](AsyncWebServerRequest *request, JsonVariant &json)
@@ -737,7 +726,7 @@ namespace ocs
                                                 if (ocsWebAdmin.CheckToken(request)){
                                     this->ConfigParameter.setConfigInputs(json);
                                                                                         this->existsConfigChanged = true;
-                                                                                request->send(200, MIMETYPE_JSON, "{}");
+                                                                                request->send(200, JSON_MIMETYPE, "{}");
                                                 } });
 
         // set outputs
@@ -746,7 +735,7 @@ namespace ocs
                                                                                  if (ocsWebAdmin.CheckToken(request)){
     this->ConfigParameter.setConfigoutputs(json);
                                                                                         this->existsConfigChanged = true;
-                                                                                request->send(200, MIMETYPE_JSON, "{}");
+                                                                                request->send(200, JSON_MIMETYPE, "{}");
                                                                                  } });
 
         // set cert
@@ -755,7 +744,7 @@ namespace ocs
                                                                             if (ocsWebAdmin.CheckToken(request)){
         this->ConfigParameter.caCert_fingerPrint = json[json_key_caCert_fingerPrint].as<String>();
                                                                                         this->existsConfigChanged = true;
-                                                                                request->send(200, MIMETYPE_JSON, "{}");
+                                                                                request->send(200, JSON_MIMETYPE, "{}");
                                                                             } });
 
         void setUpWebAdmin()
@@ -771,7 +760,7 @@ namespace ocs
                            {
                                if (ocsWebAdmin.CheckToken(request))
                                {
-                                request->send(200, MIMETYPE_JSON, DynamicJsonToString(this->ConfigParameter.getInfo()));
+                                request->send(200, JSON_MIMETYPE, DynamicJsonToString(this->ConfigParameter.getInfo()));
                                } });
 
             // set device info
@@ -782,7 +771,7 @@ namespace ocs
                            {
                                if (ocsWebAdmin.CheckToken(request))
                                {
-                                   request->send(200, MIMETYPE_JSON, DynamicJsonToString(this->ConfigParameter.getGeolocation()));
+                                   request->send(200, JSON_MIMETYPE, DynamicJsonToString(this->ConfigParameter.getGeolocation()));
                                } });
 
             // set geolocation
@@ -793,7 +782,7 @@ namespace ocs
                            {
                                if (ocsWebAdmin.CheckToken(request))
                                {
-                                   request->send(200, MIMETYPE_JSON, DynamicJsonToString(this->ConfigParameter.getConfigWifi()));
+                                   request->send(200, JSON_MIMETYPE, DynamicJsonToString(this->ConfigParameter.getConfigWifi()));
                                } });
 
             // set wifi
@@ -804,7 +793,7 @@ namespace ocs
                            {
                                if (ocsWebAdmin.CheckToken(request))
                                {
-                                   request->send(200, MIMETYPE_JSON, DynamicJsonToString(this->ConfigParameter.getConfigInputs()));
+                                   request->send(200, JSON_MIMETYPE, DynamicJsonToString(this->ConfigParameter.getConfigInputs()));
                                } });
 
             // set inputs
@@ -815,7 +804,7 @@ namespace ocs
                            {
                                if (ocsWebAdmin.CheckToken(request))
                                {
-                                   request->send(200, MIMETYPE_JSON, DynamicJsonToString(this->ConfigParameter.getConfigoutputs()));
+                                   request->send(200, JSON_MIMETYPE, DynamicJsonToString(this->ConfigParameter.getConfigoutputs()));
                                } });
 
             // set outputs
@@ -828,7 +817,7 @@ namespace ocs
                                {
                                    DynamicJsonDocument doc(2048);
                                    doc[json_key_caCert_fingerPrint] = this->ConfigParameter.caCert_fingerPrint;
-                                   request->send(200, MIMETYPE_JSON, DynamicJsonToString(doc));
+                                   request->send(200, JSON_MIMETYPE, DynamicJsonToString(doc));
                                } });
 
             // set cert
@@ -839,7 +828,7 @@ namespace ocs
                            {
                                if (ocsWebAdmin.CheckToken(request))
                                {
-                                   request->send(200, MIMETYPE_JSON, "{\"ESP\": \"Restarting...\"}");
+                                   request->send(200, JSON_MIMETYPE, "{\"ESP\": \"Restarting...\"}");
                                    this->reboot();
                                } });
 
@@ -848,7 +837,7 @@ namespace ocs
                            {
                             DynamicJsonDocument doc(16);
                             doc[F("isalavive")] = true; 
-                            request->send(200, MIMETYPE_JSON, DynamicJsonToString(doc)); });
+                            request->send(200, JSON_MIMETYPE, DynamicJsonToString(doc)); });
         }
 
         void setUpwebSocket()
@@ -981,12 +970,12 @@ namespace ocs
                 doc[F("data")][json_key_info][F("ip")] = this->ip;
                 doc[F("data")][json_key_info][F("ssid")] = this->ssid;
                 doc[F("response")] = 1000;
-                String outputJson = "";
-                serializeJson(doc, outputJson);
+
+                // serializeJson(doc, outputJson);
                 doc.clear();
                 // Serial.println(outputJson);
 
-                this->wsclient.send(outputJson);
+                this->wsclient.send(DynamicJsonToString(doc));
             }
             break;
             }

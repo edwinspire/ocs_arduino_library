@@ -8,16 +8,15 @@
 #include <ESPAsyncTCP.h>
 #endif
 #include <ESPAsyncWebServer.h>
-#include <ArduinoWebsockets.h>
 #include <ArduinoJson.h>
 #include "LittleFS.h"
 #include "Interval.cpp"
 #include <random>
+#include "AsyncJson.h"
 
 namespace ocs
 {
 
-    const char MIMETYPE_JSON[17] = "application/json";
     const byte MAX_SESSIONS = 5;
     const byte MAX_LENGTH_TOKEN = 15;
 
@@ -76,9 +75,13 @@ namespace ocs
                 Serial.printf("%s\n", msg.c_str());
 
                 if (info->opcode == WS_TEXT)
+                {
                     client->text("I got your text message");
+                }
                 else
+                {
                     client->binary("I got your binary message");
+                }
             }
             else
             {
@@ -135,18 +138,23 @@ namespace ocs
             Serial.printf("HttpWebsocketServer Port: %i\n", port);
         }
 
-        bool login(bool isAdmin, String pwd, AsyncWebServerRequest *request, char *token)
+        bool checkPassword(bool isAdmin, const char *pwd)
+        {
+            return (isAdmin && this->admin_pwd == pwd) || (!isAdmin && this->user_pwd == pwd);
+        }
+
+        bool login(bool isAdmin, const char *pwd, AsyncWebServerRequest *request, char *token)
         {
             bool result = false;
             if (isAdmin)
             {
-                if (strcmp(pwd.c_str(), this->admin_pwd) == 0)
+                if (strcmp(pwd, this->admin_pwd) == 0)
                 {
                     this->resetLock();
 
                     if (setToken(token, isAdmin))
                     {
-                        this->responseLoginSuccess(request, String(token));
+                        this->responseLoginSuccess(request, token);
                         result = true;
                     }
                     else
@@ -161,13 +169,13 @@ namespace ocs
             }
             else
             {
-                if (strcmp(pwd.c_str(), this->user_pwd) == 0)
+                if (strcmp(pwd, this->user_pwd) == 0)
                 {
                     this->resetLock();
 
                     if (setToken(token, isAdmin))
                     {
-                        this->responseLoginSuccess(request, String(token));
+                        this->responseLoginSuccess(request, token);
                         result = true;
                     }
                     else
@@ -183,14 +191,14 @@ namespace ocs
             return result;
         }
 
-        void setAdminPwd(String admin)
+        void setAdminPwd(const char *admin)
         {
-            strncpy(this->admin_pwd, admin.c_str(), MAX_LENGTH_TOKEN);
+            strncpy(this->admin_pwd, admin, MAX_LENGTH_TOKEN);
         }
 
-        void setUserPwd(String user)
+        void setUserPwd(const char *user)
         {
-            strncpy(this->user_pwd, user.c_str(), MAX_LENGTH_TOKEN);
+            strncpy(this->user_pwd, user, MAX_LENGTH_TOKEN);
         }
 
         // Métodos Getter
@@ -236,13 +244,16 @@ namespace ocs
                                  } });
         }
 
-        void begin()
+        void start()
         {
-
+            Serial.println("Server begin 1");
             this->ws.onEvent(onWsEvent);
+            Serial.println("Server begin 2");
             this->addHandler(&ws);
+            Serial.println("Server begin 3");
             DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
             DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "*");
+            Serial.println("Server begin 4");
             this->begin();
         }
 
@@ -252,7 +263,7 @@ namespace ocs
             this->ws.cleanupClients();
         }
 
-        void wsTextAll(String message)
+        void wsTextAll(const char *message)
         {
             this->ws.textAll(message);
         }
@@ -261,6 +272,48 @@ namespace ocs
         {
             this->unauthorized_counter = 0;
         }
+
+        bool CheckToken(AsyncWebServerRequest *request)
+        {
+
+            if (this->unauthorized_counter > this->max_unauthorized_counter)
+            {
+                request->send(423, JSON_MIMETYPE, "{}");
+                return false;
+            }
+            else if (request->hasHeader("token"))
+            {
+                AsyncWebHeader *h = request->getHeader("token");
+
+                for (int i = 0; i < MAX_SESSIONS; i++)
+                {
+                    //  Serial.printf("Compara token: %s  >> %s\n", this->sessions[i], h->value().c_str());
+                    if (this->sessions[i].token == h->value().c_str())
+                    {
+                        return true;
+                    }
+                }
+                this->add_unauthorized_counter();
+                request->send(403, JSON_MIMETYPE, "{}");
+                return false;
+            }
+            else
+            {
+                this->add_unauthorized_counter();
+                request->send(403, JSON_MIMETYPE, "{}");
+            }
+            return false;
+        }
+
+    private:
+        unsigned long expiresTime = 324000000; // 90 minutos
+        AsyncWebSocket ws = AsyncWebSocket("/ws");
+        edwinspire::Interval ckeckToken;
+        Session sessions[MAX_SESSIONS];
+        byte unauthorized_counter = 0;
+        byte max_unauthorized_counter = 10;
+        char admin_pwd[20] = "";
+        char user_pwd[20] = "";
 
         bool setToken(char *token, bool isAdmin)
         {
@@ -283,65 +336,23 @@ namespace ocs
             return result;
         }
 
-        bool CheckToken(AsyncWebServerRequest *request)
+        void responseLoginSuccess(AsyncWebServerRequest *request, char *token)
         {
-
-            if (this->unauthorized_counter > this->max_unauthorized_counter)
-            {
-                request->send(423, MIMETYPE_JSON, "{}");
-                return false;
-            }
-            else if (request->hasHeader("token"))
-            {
-                AsyncWebHeader *h = request->getHeader("token");
-
-                for (int i = 0; i < MAX_SESSIONS; i++)
-                {
-                    //  Serial.printf("Compara token: %s  >> %s\n", this->sessions[i], h->value().c_str());
-                    if (this->sessions[i].token == h->value().c_str())
-                    {
-                        return true;
-                    }
-                }
-                this->add_unauthorized_counter();
-                request->send(403, MIMETYPE_JSON, "{}");
-                return false;
-            }
-            else
-            {
-                this->add_unauthorized_counter();
-                request->send(403, MIMETYPE_JSON, "{}");
-            }
-            return false;
-        }
-
-    private:
-        unsigned long expiresTime = 324000000; // 90 minutos
-        AsyncWebSocket ws = AsyncWebSocket("/ws");
-        edwinspire::Interval ckeckToken;
-        Session sessions[MAX_SESSIONS];
-        byte unauthorized_counter = 0;
-        byte max_unauthorized_counter = 10;
-        char admin_pwd[20] = "";
-        char user_pwd[20] = "";
-
-        void responseLoginSuccess(AsyncWebServerRequest *request, String token)
-        {
-            AsyncWebServerResponse *response = request->beginResponse(200, MIMETYPE_JSON, "{\"token\": \"" + token + "\"}");
+            AsyncWebServerResponse *response = request->beginResponse(200, JSON_MIMETYPE, "{\"token\": \"" + String(token) + "\"}");
             response->addHeader(F("token"), token);
             request->send(response);
         }
 
         void responseLoginError(AsyncWebServerRequest *request)
         {
-            AsyncWebServerResponse *response = request->beginResponse(401, MIMETYPE_JSON, F("{}"));
+            AsyncWebServerResponse *response = request->beginResponse(401, JSON_MIMETYPE, F("{}"));
             response->addHeader(F("token"), F(""));
             request->send(response);
         }
 
         void responseLoginThereAreNoFreeSessions(AsyncWebServerRequest *request)
         {
-            AsyncWebServerResponse *response = request->beginResponse(405, MIMETYPE_JSON, "{\"error\":\"Limit of active sessions has been exceeded\"}");
+            AsyncWebServerResponse *response = request->beginResponse(405, JSON_MIMETYPE, "{\"error\":\"Limit of active sessions has been exceeded\"}");
             response->addHeader(F("token"), F(""));
             request->send(response);
         }
@@ -353,10 +364,6 @@ namespace ocs
                 this->unauthorized_counter++;
             }
         }
-
-        /*
-        muestrame otra forma de hacer una petición a un API REST que está en otro dominio sobre HTTP desde una página que está en HTTPS?
-        */
 
         void genToken(char *cadena)
         {
