@@ -143,18 +143,41 @@ namespace ocs
             return (isAdmin && this->admin_pwd == pwd) || (!isAdmin && this->user_pwd == pwd);
         }
 
-        bool login(bool isAdmin, const char *pwd, AsyncWebServerRequest *request, char *token)
+        static void freeMemory()
         {
+
+#if defined(ESP8266)
+        //    Serial.printf("getHeapFragmentation %d\n", ESP.getHeapFragmentation());
+          //  Serial.printf("getFreeHeap %d\n", ESP.getFreeHeap());
+            ESP.resetHeap();
+#endif
+        }
+
+        static String DynamicJsonToString(JsonVariantConst doc)
+        {
+            // Serial.println("-> DynamicJsonToString 1");
+            String out = "";
+            serializeJson(doc, out);
+            // Serial.println("-> DynamicJsonToString 2");
+            HttpWebsocketServer::freeMemory();
+            return out;
+        }
+
+        bool login(bool isAdmin, const char *pwd, AsyncWebServerRequest *request)
+        {
+            char *token;
             bool result = false;
             if (isAdmin)
             {
                 if (strcmp(pwd, this->admin_pwd) == 0)
                 {
                     this->resetLock();
-
-                    if (setToken(token, isAdmin))
+                    unsigned int session_position = setToken(token, isAdmin);
+                    if (session_position >= 0)
                     {
-                        this->responseLoginSuccess(request, token);
+                        // Serial.print("setToken: ");
+                        // Serial.println(this->sessions[session_position].token);
+                        this->responseLoginSuccess(request, this->sessions[session_position].token);
                         result = true;
                     }
                     else
@@ -246,14 +269,12 @@ namespace ocs
 
         void start()
         {
-            Serial.println("Server begin 1");
-            this->ws.onEvent(onWsEvent);
-            Serial.println("Server begin 2");
-            this->addHandler(&ws);
-            Serial.println("Server begin 3");
             DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
             DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "*");
-            Serial.println("Server begin 4");
+            DefaultHeaders::Instance().addHeader("Access-Control-Max-Age", "600000");
+            DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS,PUT,DELETE");
+            this->ws.onEvent(onWsEvent);
+            this->addHandler(&ws);
             this->begin();
         }
 
@@ -278,29 +299,28 @@ namespace ocs
 
             if (this->unauthorized_counter > this->max_unauthorized_counter)
             {
-                request->send(423, JSON_MIMETYPE, "{}");
+                request->send(423, JSON_MIMETYPE, "{\"error\":\"max_unauthorized_counter\"}");
                 return false;
             }
             else if (request->hasHeader("token"))
             {
                 AsyncWebHeader *h = request->getHeader("token");
-
                 for (int i = 0; i < MAX_SESSIONS; i++)
                 {
-                    //  Serial.printf("Compara token: %s  >> %s\n", this->sessions[i], h->value().c_str());
-                    if (this->sessions[i].token == h->value().c_str())
+                    //        Serial.printf("Compara token: %s  >> %s\n", this->sessions[i].token, h->value().c_str());
+                    if (strcmp(this->sessions[i].token, h->value().c_str()) == 0)
                     {
                         return true;
                     }
                 }
                 this->add_unauthorized_counter();
-                request->send(403, JSON_MIMETYPE, "{}");
+                request->send(423, JSON_MIMETYPE, "{\"error\":\"Invalid Token\"}");
                 return false;
             }
             else
             {
                 this->add_unauthorized_counter();
-                request->send(403, JSON_MIMETYPE, "{}");
+                request->send(423, JSON_MIMETYPE, "{\"error\":\"No authorized\"}");
             }
             return false;
         }
@@ -315,9 +335,9 @@ namespace ocs
         char admin_pwd[20] = "";
         char user_pwd[20] = "";
 
-        bool setToken(char *token, bool isAdmin)
+        unsigned int setToken(char *token, bool isAdmin)
         {
-            bool result = false;
+            unsigned int result = -1;
             for (int i = 0; i < MAX_SESSIONS; i++)
             {
 
@@ -328,7 +348,7 @@ namespace ocs
                     this->sessions[i].expires = expiresTime + millis();
                     strncpy(this->sessions[i].token, token, MAX_LENGTH_TOKEN);
                     this->sessions[i].isAdmin = isAdmin;
-                    result = true;
+                    result = i;
                     break;
                 }
             }

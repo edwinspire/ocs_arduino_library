@@ -62,33 +62,43 @@ namespace ocs
 
         static bool save(const DynamicJsonDocument &doc)
         {
-            bool r = false;
-            Serial.println(F("--> Save - Cambios pendientes "));
             String data_serialized = "";
             serializeJson(doc, data_serialized);
+            return save(data_serialized);
+        }
+
+        static bool save(String data_serialized)
+        {
+            bool r = false;
+            Serial.println(F("--> Save - Cambios pendientes "));
 
             Serial.println(data_serialized);
 
             // Serial.println(data_serialized);
             EEPROM.begin(ocs::EEPROM_SIZE_DEFAULT);
 
+            //Serial.println("save 1");
+
             // Length (with one extra character for the null terminator)
             unsigned int str_len = data_serialized.length() + 1;
-
+            //Serial.println("save 2");
             // Prepare the character array (the buffer)
             char char_array[str_len];
-
+            //Serial.println("save 3");
             // Copy it over
             data_serialized.toCharArray(char_array, str_len);
-
+            //Serial.println("save 4");
+            data_serialized.clear();
+            //Serial.println("save 4");
             unsigned int i = 0;
             while (i < str_len)
             {
                 EEPROM.write(i, char_array[i]);
                 i++;
             }
-
+            //Serial.println("save 6");
             r = EEPROM.commit();
+            //Serial.println("save 7");
             EEPROM.end();
 
             if (!r)
