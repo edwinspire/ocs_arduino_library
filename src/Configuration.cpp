@@ -3,6 +3,8 @@
 #include <Interval.cpp>
 #include <LocalStore.cpp>
 
+#pragma once
+
 #ifndef MAX_OUTPUTS
 MAX_OUTPUTS = 1
 #endif
@@ -196,7 +198,7 @@ public:
 class Output
 {
 private:
-    byte gpio = 100;
+    byte gpio = 255;
     bool enabled = false;
     String name = "";
     String alias = "";
@@ -301,6 +303,7 @@ enum ContactType : uint8_t
 //  Enum 0: Normal, 1: Delay, 2: Always, 3: Interior, 6: Switch, 7: Toggle, 8: Arma/Disarm
 enum ZoneType : uint8_t
 {
+    UNUSED = 0,
     NORMAL = 1,
     DELAY = 2,
     ALWAYS = 3,
@@ -822,7 +825,7 @@ public:
 };
 
 // Definir la estructura principal que representa el JSON completo
-class Config
+class Configuration
 {
 public:
     Device device;
@@ -831,11 +834,24 @@ public:
     Output outputs[MAX_OUTPUTS];
     Input inputs[MAX_INPUTS];
     SSID ssids[MAX_SSID];
+    byte led = 255;
 
-    Config()
+    Configuration()
+    {
+        interval_store.setup(5000, [&]()
+                             {
+                                 // Cada 5 segundos verifica si hubo cambios
+                                 this->store(); });
+    }
+
+    void setup()
     {
         fromJson(ocs::LocalStore::read());
-        setup();
+    }
+
+    void setup(const DynamicJsonDocument &jsonDocument)
+    {
+        fromJson(jsonDocument);
     }
 
     void fromJson(const DynamicJsonDocument &jsonDocument)
@@ -943,14 +959,6 @@ private:
     edwinspire::Interval interval_store;
     bool armed = true;
     bool isChanged = false;
-
-    void setup()
-    {
-        interval_store.setup(5000, [&]()
-                             {
-                                 // Cada 5 segundos verifica si hubo cambios
-                                 this->store(); });
-    }
 
     void store()
     {
