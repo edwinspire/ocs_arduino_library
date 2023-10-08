@@ -1,6 +1,6 @@
 #include <ArduinoJson.h>
 #include <WebServer.cpp>
-//#include <LocalStore.cpp>
+// #include <LocalStore.cpp>
 #include <Inputpin.cpp>
 #include <Outputpin.cpp>
 #include <Interval.cpp>
@@ -22,39 +22,8 @@ namespace ocs
 {
 
     const byte MAX_SSID_WIFI = 4;
-    const String default_websocketHost = "wss://open-community-safety.herokuapp.com/ws/device";
+    const String default_websocketHost = "open-community-safety.herokuapp.com/ws/device";
     const String default_deviceid = "00a0aa00-aa00-0000-0000-000000000000";
-    //    const byte MAX_TELEGRAM_GROUPS = 3;
-
-    /*
-        const char json_key_wf[3] = "wf";
-        const char json_key_input[2] = "i";
-        const char json_key_output[2] = "o";
-        const char json_key_gpio[5] = "gpio";
-        const char json_key_enabled[8] = "enabled";
-        const char json_key_name[5] = "name";
-        const char json_key_ssid[5] = "ssid";
-        const char json_key_pwd[4] = "pwd";
-        const char json_key_latitude[9] = "latitude";
-        const char json_key_longitude[10] = "longitude";
-        const char json_key_event[6] = "event";
-        const char json_key_led[4] = "led";
-        const char json_key_caCert_fingerPrint[4] = "cfp";
-        const char json_key_deviceId[9] = "deviceId";
-        const char json_key_acbgl[6] = "acbgl";
-        const char json_key_wshost[7] = "wsHost";
-        const char json_key_status[7] = "status";
-        const char json_key_value[6] = "value";
-        const char json_key_geo[4] = "geo";
-        const char json_key_info[5] = "info";
-        const char json_key_function[3] = "fn";
-        const char json_key_password_admin[5] = "pwda";
-        const char json_key_password_user[5] = "pwdu";
-        const char json_key_domainName[11] = "domainName";
-      */
-    // json_key_info
-    // const char json_key_outputs[8] = "outputs";
-    // const char json_key_inputs[7] = "inputs";
 
 #ifndef MAX_INPUTS
     MAX_INPUTS = 0
@@ -94,21 +63,23 @@ namespace ocs
         }
     };
 
-    struct WifiParams
-    {
-        String ssid;
-        String pwd;
-
-        StaticJsonDocument<32> toJson()
+    /*
+        struct WifiParams
         {
-            StaticJsonDocument<32> doc;
-            doc[json_key_ssid] = this->ssid;
-            doc[json_key_password] = this->pwd;
-            return doc;
-        }
-    };
+            String ssid;
+            String pwd;
 
-    const WifiParams default_wifi = {.ssid = "accesspoint", .pwd = "123456@qwert"};
+            StaticJsonDocument<32> toJson()
+            {
+                StaticJsonDocument<32> doc;
+                doc[json_key_ssid] = this->ssid;
+                doc[json_key_password] = this->pwd;
+                return doc;
+            }
+        };
+
+        const WifiParams default_wifi = {.ssid = "accesspoint", .pwd = "123456@qwert"};
+    */
 
     /*
         class Config
@@ -378,37 +349,37 @@ namespace ocs
         String ssid;
         bool WifiConnected = false;
 
-/*
-        void setAlarm(ocs::input::SirenType at)
-        {
-
-            for (byte i = 0; i < MAX_OUTPUTS; i = i + 1)
-            {
-
-                Serial.print("Entra en setAlarm " + String(at));
-                Serial.print("\nGPIO " + String(this->outputs[i].getGPIO()));
-                Serial.print("\nEnabled " + String(this->outputs[i].enabled));
-
-                this->outputs[i].low();
-
-                switch (at)
+        /*
+                void setAlarm(ocs::input::SirenType at)
                 {
-                case ocs::input::SirenType::TEST:
-                    this->outputs[i].blink(2000, 1500, 0, 4); // 1500 milliseconds ON, 2000 milliseconds OFF, start immidiately, blink 10 times (5 times OFF->ON, 5 times ON->OFF, interleavedly)
-                    break;
-                case ocs::input::SirenType::CONTINUOUS:
-                    this->outputs[i].blink(500, 5 * 60 * 1000, 0, 2); // 5 minutes
-                    break;
-                case ocs::input::SirenType::PULSING:
-                    this->outputs[i].blink(3000, 4000, 0, 50); // 5 minutes
-                    break;
-                default:
-                    this->outputs[i].low();
-                    break;
+
+                    for (byte i = 0; i < MAX_OUTPUTS; i = i + 1)
+                    {
+
+                        Serial.print("Entra en setAlarm " + String(at));
+                        Serial.print("\nGPIO " + String(this->outputs[i].getGPIO()));
+                        Serial.print("\nEnabled " + String(this->outputs[i].enabled));
+
+                        this->outputs[i].low();
+
+                        switch (at)
+                        {
+                        case ocs::input::SirenType::TEST:
+                            this->outputs[i].blink(2000, 1500, 0, 4); // 1500 milliseconds ON, 2000 milliseconds OFF, start immidiately, blink 10 times (5 times OFF->ON, 5 times ON->OFF, interleavedly)
+                            break;
+                        case ocs::input::SirenType::CONTINUOUS:
+                            this->outputs[i].blink(500, 5 * 60 * 1000, 0, 2); // 5 minutes
+                            break;
+                        case ocs::input::SirenType::PULSING:
+                            this->outputs[i].blink(3000, 4000, 0, 50); // 5 minutes
+                            break;
+                        default:
+                            this->outputs[i].low();
+                            break;
+                        }
+                    }
                 }
-            }
-        }
-*/
+        */
         void loop()
         {
 
@@ -512,13 +483,15 @@ namespace ocs
         void setup()
         {
             this->ConfigParameter.setup();
+            this->setup(this->ConfigParameter);
         }
 
         void setup(Configuration config)
         {
-            //   Serial.println(F("Setup OCS"));
+            Serial.println(F("Setup OCS"));
 
             this->ConfigParameter = config;
+            //this->ConfigParameter.setup();
 
             ocsWebAdmin.setup();
             ocsWebAdmin.setAdminPwd(this->ConfigParameter.device.getPwdAdm().c_str());
@@ -702,12 +675,12 @@ namespace ocs
 
             case ZoneType::BUTTON:
                 // Independiente si el sistema está armado o no, comanda una o varias salidas
-                 linkedOutputsAction(position, status, ZoneType::BUTTON);
+                linkedOutputsAction(position, status, ZoneType::BUTTON);
                 break;
 
             case ZoneType::TOGGLE:
                 // Independiente si el sistema está armado o no, comanda una o varias salidas
-                  linkedOutputsAction(position, status, ZoneType::TOGGLE);
+                linkedOutputsAction(position, status, ZoneType::TOGGLE);
                 break;
 
             default:
