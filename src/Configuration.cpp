@@ -30,27 +30,44 @@ const char json_key_username[9] = "username";
 const char json_key_password[4] = "pwd";
 const char json_key_certificate[5] = "cert";
 
-const char json_key_up[3] = "up";
-const char json_key_down[5] = "down";
-const char json_key_time[5] = "time";
+// const char json_key_up[3] = "up";
+// const char json_key_down[5] = "down";
+// const char json_key_time[5] = "time";
 
 const char json_key_gpio[5] = "gpio";
 const char json_key_enabled[8] = "enabled";
-const char json_key_alias[6] = "alias";
+const char json_key_value[4] = "val";
 
 const char json_key_contact_type[3] = "ct";
 const char json_key_zone_type[3] = "zt";
 const char json_key_report[7] = "report";
-const char json_key_interval[9] = "int";
+const char json_key_interval[4] = "int";
+const char json_key_is_secure[4] = "sec";
 
 const char json_key_device[4] = "dev";
 const char json_key_server[4] = "srv";
 const char json_key_input[2] = "i";
 const char json_key_output[2] = "o";
 
+const char json_key_status[7] = "status";
+const char json_key_info[5] = "info";
+
 const char json_key_ssid[5] = "ssid";
 
 const char json_key_armed[6] = "armed";
+
+const char json_key_event[6] = "event";
+
+const char json_key_data[5] = "data";
+const char json_key_label[6] = "label";
+const char json_key_ip[3] = "ip";
+const char json_key_response[5] = "resp";
+
+const char json_key_led[4] = "led";
+
+const char json_key_low_time[8] = "lowtime";
+const char json_key_high_time[9] = "hightime";
+const char json_key_total_time[10] = "totaltime";
 
 class SSID
 {
@@ -113,87 +130,6 @@ public:
     }
 };
 
-// Definir una estructura para los intervalos
-class Interval
-{
-private:
-    unsigned int up = 1;
-    unsigned int down = 1;
-    unsigned int time = 3;
-
-public:
-    bool isChanged = false;
-
-    DynamicJsonDocument toJson()
-    {
-        DynamicJsonDocument jsonDocument(64);
-
-        // Agrega las propiedades al objeto JSON
-        jsonDocument[json_key_up] = up;
-        jsonDocument[json_key_down] = down;
-        jsonDocument[json_key_time] = time;
-
-        return jsonDocument;
-    }
-
-    void fromJson(const DynamicJsonDocument &jsonDocument)
-    {
-        // Verifica si las propiedades existen en el JSON antes de asignarlas
-        if (jsonDocument.containsKey(json_key_up))
-        {
-            up = jsonDocument[json_key_up].as<unsigned int>();
-        }
-        if (jsonDocument.containsKey(json_key_down))
-        {
-            down = jsonDocument[json_key_down].as<unsigned int>();
-        }
-        if (jsonDocument.containsKey(json_key_time))
-        {
-            time = jsonDocument[json_key_time].as<unsigned int>();
-        }
-        this->isChanged = true;
-    }
-
-    // Getter para up
-    unsigned int getUp() const
-    {
-        return up;
-    }
-
-    // Setter para up
-    void setUp(unsigned int newValue)
-    {
-        up = newValue;
-        isChanged = true;
-    }
-
-    // Getter para down
-    unsigned int getDown() const
-    {
-        return down;
-    }
-
-    // Setter para down
-    void setDown(unsigned int newValue)
-    {
-        down = newValue;
-        isChanged = true;
-    }
-
-    // Getter para time
-    unsigned int getTime() const
-    {
-        return time;
-    }
-
-    // Setter para time
-    void setTime(unsigned int newValue)
-    {
-        time = newValue;
-        isChanged = true;
-    }
-};
-
 // Definir una estructura para las salidas
 class Output
 {
@@ -201,7 +137,7 @@ private:
     byte gpio = 255;
     bool enabled = false;
     String name = "";
-    String alias = "";
+    String label = "";
 
 public:
     bool isChanged = false;
@@ -213,7 +149,7 @@ public:
         jsonDocument[json_key_gpio] = gpio;
         jsonDocument[json_key_enabled] = enabled;
         jsonDocument[json_key_name] = name;
-        jsonDocument[json_key_alias] = alias;
+        jsonDocument[json_key_label] = label;
         return jsonDocument;
     }
 
@@ -232,9 +168,9 @@ public:
         {
             name = jsonDocument[json_key_name].as<String>();
         }
-        if (jsonDocument.containsKey(json_key_alias))
+        if (jsonDocument.containsKey(json_key_label))
         {
-            alias = jsonDocument[json_key_alias].as<String>();
+            label = jsonDocument[json_key_label].as<String>();
         }
         this->isChanged = true;
     }
@@ -278,16 +214,16 @@ public:
         isChanged = true;
     }
 
-    // Getter para alias
-    String getAlias() const
+    // Getter para label
+    String getLabel() const
     {
-        return alias;
+        return label;
     }
 
-    // Setter para alias
-    void setAlias(const String &newValue)
+    // Setter para label
+    void setLabel(const String &newValue)
     {
-        alias = newValue;
+        label = newValue;
         isChanged = true;
     }
 };
@@ -308,19 +244,63 @@ enum ZoneType : uint8_t
     DELAY = 2,
     ALWAYS = 3,
     INTERIOR = 4,
-    SWITCH = 5,
+    BUTTON = 5,
     TOGGLE = 6,
     ARM_DISARM = 7
+};
+
+enum ArmedType : uint8_t
+{
+    DISARMED = 0,
+    INSTANT = 1,    // Cuando se desea armar todo el sistema de forma inmediata
+    WITH_DELAY = 2, // Cuando se arma el sistema con las zonas de retardo habilitadas
+    PERIMETER = 3   // Arma toda la zona perimetral y no toma en cuenta las zonas interiores
 };
 
 class LinkedOutputs
 {
 private:
     byte gpio;
-    byte interval;
+    unsigned long lowTime;
+    unsigned long highTime;
+    unsigned long totalTime;
 
 public:
     bool isChanged = false;
+
+    unsigned long getLowTime() const
+    {
+        return lowTime;
+    }
+
+    void setLowTime(unsigned long newValue)
+    {
+        lowTime = newValue;
+        isChanged = true;
+    }
+
+    unsigned long geHighTime() const
+    {
+        return highTime;
+    }
+
+    void setHighTime(unsigned long newValue)
+    {
+        highTime = newValue;
+        isChanged = true;
+    }
+
+    unsigned long geTotalTime() const
+    {
+        return totalTime;
+    }
+
+    void setTotalTime(unsigned long newValue)
+    {
+        totalTime = newValue;
+        isChanged = true;
+    }
+
     // Getter para gpio
     byte getGpio() const
     {
@@ -334,25 +314,14 @@ public:
         isChanged = true;
     }
 
-    // Getter para interval
-    byte getInterval() const
-    {
-        return interval;
-    }
-
-    // Setter para interval
-    void setInterval(byte newInterval)
-    {
-        interval = newInterval;
-        isChanged = true;
-    }
-
     // Método toJson para convertir a JSON
     DynamicJsonDocument toJson() const
     {
         DynamicJsonDocument jsonDocument(16);
         jsonDocument[json_key_gpio] = gpio;
-        jsonDocument[json_key_interval] = interval;
+        jsonDocument[json_key_low_time] = lowTime;
+        jsonDocument[json_key_high_time] = highTime;
+        jsonDocument[json_key_total_time] = totalTime;
         return jsonDocument;
     }
 
@@ -363,10 +332,12 @@ public:
         {
             gpio = jsonDocument[json_key_gpio].as<byte>();
         }
+        /*
         if (jsonDocument.containsKey(json_key_interval))
         {
             interval = jsonDocument[json_key_interval].as<byte>();
         }
+        */
         isChanged = true;
     }
 };
@@ -375,15 +346,15 @@ public:
 class Input
 {
 private:
-    byte gpio = 100;
+    byte gpio = 255;
     String name = "";
-    String alias = "";
+    String label = "";
     bool enabled = false;
     ContactType contact_type;
     ZoneType zone_type;
-    bool report = false;
+    bool report = false; // Reportar evento a grupo telegram - Sim embargo siempre reportará de forma individual a los usuarios que hayan registrado el dispositivo como propio
     LinkedOutputs outs[MAX_OUTPUTS_LINKED];
-    byte interval = 0;
+    // byte interval = 0;
 
 public:
     bool isChanged = false;
@@ -395,12 +366,12 @@ public:
         // Agrega las propiedades al objeto JSON
         jsonDocument[json_key_gpio] = gpio;
         jsonDocument[json_key_name] = name;
-        jsonDocument[json_key_alias] = alias;
+        jsonDocument[json_key_label] = label;
         jsonDocument[json_key_enabled] = enabled;
         jsonDocument[contact_type] = static_cast<byte>(contact_type);
         jsonDocument[zone_type] = static_cast<byte>(zone_type);
         jsonDocument[json_key_report] = report;
-        jsonDocument[json_key_interval] = interval;
+        // jsonDocument[json_key_interval] = interval;
 
         for (int i = 0; i < MAX_OUTPUTS_LINKED; i++)
         {
@@ -420,9 +391,9 @@ public:
         {
             name = jsonDocument[json_key_name].as<String>();
         }
-        if (jsonDocument.containsKey(json_key_alias))
+        if (jsonDocument.containsKey(json_key_label))
         {
-            alias = jsonDocument[json_key_alias].as<String>();
+            label = jsonDocument[json_key_label].as<String>();
         }
         if (jsonDocument.containsKey(json_key_enabled))
         {
@@ -440,10 +411,12 @@ public:
         {
             report = jsonDocument[json_key_report].as<bool>();
         }
+        /*
         if (jsonDocument.containsKey(json_key_interval))
         {
             interval = jsonDocument[json_key_interval].as<byte>();
         }
+        */
 
         if (jsonDocument.containsKey(json_key_output))
         {
@@ -500,16 +473,16 @@ public:
         isChanged = true;
     }
 
-    // Getter para obtener el valor de alias
-    String getAlias() const
+    // Getter para obtener el valor de label
+    String getLabel() const
     {
-        return alias;
+        return label;
     }
 
-    // Setter para establecer el valor de alias
-    void setAlias(const String &newAlias)
+    // Setter para establecer el valor de label
+    void setLabel(const String &newlabel)
     {
-        alias = newAlias;
+        label = newlabel;
         isChanged = true;
     }
 
@@ -565,18 +538,20 @@ public:
         isChanged = true;
     }
 
-    // Getter para obtener el valor de interval
-    byte getInterval() const
-    {
-        return interval;
-    }
+    /*
+        // Getter para obtener el valor de interval
+        byte getInterval() const
+        {
+            return interval;
+        }
 
-    // Setter para establecer el valor de interval
-    void setInterval(byte newInterval)
-    {
-        interval = newInterval;
-        isChanged = true;
-    }
+        // Setter para establecer el valor de interval
+        void setInterval(byte newInterval)
+        {
+            interval = newInterval;
+            isChanged = true;
+        }
+        */
 };
 
 class Device
@@ -739,10 +714,11 @@ public:
 class Srv
 {
 private:
-    String websocket_server = "";
+    String server = "";
     String username = "superuser";
     String password = "superuser";
     String certificate = "HGHJJHGHJRTT";
+    bool is_secure = false;
 
 public:
     bool isChanged = false;
@@ -751,7 +727,7 @@ public:
     {
         if (jsonDocument.containsKey(json_key_websocket_server))
         {
-            websocket_server = jsonDocument[json_key_websocket_server].as<String>();
+            server = jsonDocument[json_key_websocket_server].as<String>();
         }
         if (jsonDocument.containsKey(json_key_username))
         {
@@ -766,6 +742,10 @@ public:
             certificate = jsonDocument[json_key_certificate].as<String>();
         }
 
+        if (jsonDocument.containsKey(json_key_is_secure))
+        {
+            is_secure = jsonDocument[json_key_is_secure].as<bool>();
+        }
         // Establece isChanged en true
         isChanged = true;
     }
@@ -776,24 +756,50 @@ public:
         DynamicJsonDocument doc(256);
 
         // Agrega las propiedades al objeto JSON
-        doc[json_key_websocket_server] = websocket_server;
+        doc[json_key_websocket_server] = server;
         doc[json_key_username] = username;
         doc[json_key_password] = password;
         doc[json_key_certificate] = certificate;
+        doc[json_key_is_secure] = this->is_secure;
 
         return doc;
     }
 
     // Getter para obtener el valor de websocket_server
-    String getwebsocket_server() const
+    String getServer() const
     {
-        return websocket_server;
+        return server;
     }
 
     // Setter para establecer el valor de websocket_server
-    void setwebsocket_server(const String &newwebsocket_server)
+    void setServer(const String &newwebsocket_server)
     {
-        websocket_server = newwebsocket_server;
+        server = newwebsocket_server;
+        this->isChanged = true;
+    }
+
+    String getUrlServer() const
+    {
+        if (this->is_secure)
+        {
+            return "wss://" + username + ":" + password + "@" + this->server;
+        }
+        else
+        {
+            return "ws://" + username + ":" + password + "@" + this->server;
+        }
+    }
+
+    // Getter para obtener el valor de websocket_server
+    bool getSecure() const
+    {
+        return is_secure;
+    }
+
+    // Setter para establecer el valor de websocket_server
+    void setSecure(bool secure)
+    {
+        is_secure = secure;
         this->isChanged = true;
     }
 
@@ -822,6 +828,19 @@ public:
         password = newPassword;
         this->isChanged = true;
     }
+
+    // Getter para obtener el valor
+    String getcertificate() const
+    {
+        return certificate;
+    }
+
+    // Setter para establecer el valor
+    void setCertificate(const String &cert)
+    {
+        this->certificate = cert;
+        this->isChanged = true;
+    }
 };
 
 // Definir la estructura principal que representa el JSON completo
@@ -830,7 +849,7 @@ class Configuration
 public:
     Device device;
     Srv server;
-    Interval intervals[MAX_INTERVALS];
+    // Interval intervals[MAX_INTERVALS];
     Output outputs[MAX_OUTPUTS];
     Input inputs[MAX_INPUTS];
     SSID ssids[MAX_SSID];
@@ -857,9 +876,14 @@ public:
     void fromJson(const DynamicJsonDocument &jsonDocument)
     {
 
+        if (jsonDocument.containsKey(json_key_led))
+        {
+            this->led = jsonDocument[json_key_led].as<byte>();
+        }
+
         if (jsonDocument.containsKey(json_key_armed))
         {
-            this->armed = jsonDocument[json_key_armed].as<bool>();
+            this->armed = jsonDocument[json_key_armed].as<ArmedType>();
         }
 
         if (jsonDocument.containsKey(json_key_device))
@@ -872,13 +896,15 @@ public:
             this->server.fromJson(jsonDocument[json_key_server]);
         }
 
-        if (jsonDocument.containsKey(json_key_interval))
-        {
-            for (int i = 0; i < MAX_INTERVALS; i++)
-            {
-                intervals[i].fromJson(jsonDocument[json_key_interval][i]);
-            }
-        }
+        /*
+                if (jsonDocument.containsKey(json_key_interval))
+                {
+                    for (int i = 0; i < MAX_INTERVALS; i++)
+                    {
+                        intervals[i].fromJson(jsonDocument[json_key_interval][i]);
+                    }
+                }
+                */
 
         if (jsonDocument.containsKey(json_key_output))
         {
@@ -911,15 +937,17 @@ public:
     {
 
         DynamicJsonDocument doc(2048);
+        doc[json_key_led] = this->led;
         doc[json_key_device] = this->device.toJson();
         doc[json_key_server] = this->server.toJson();
         doc[json_key_armed] = armed;
 
-        for (byte i = 0; i < MAX_INTERVALS; i = i + 1)
-        {
-            doc[json_key_interval][i] = this->intervals[i].toJson();
-        }
-
+        /*
+                for (byte i = 0; i < MAX_INTERVALS; i = i + 1)
+                {
+                    doc[json_key_interval][i] = this->intervals[i].toJson();
+                }
+        */
         for (byte i = 0; i < MAX_OUTPUTS; i = i + 1)
         {
             doc[json_key_output][i] = this->outputs[i].toJson();
@@ -943,13 +971,26 @@ public:
         interval_store.loop();
     }
 
-    bool getArmed() const
+    // Getter para label
+    byte getLed() const
+    {
+        return led;
+    }
+
+    // Setter para label
+    void setLed(const byte &newValue)
+    {
+        led = newValue;
+        isChanged = true;
+    }
+
+    ArmedType getArmed() const
     {
         return armed;
     }
 
     // Setter para establecer el valor de password
-    void setArmed(const bool &newArmed)
+    void setArmed(const ArmedType &newArmed)
     {
         armed = newArmed;
         this->isChanged = true;
@@ -957,7 +998,7 @@ public:
 
 private:
     edwinspire::Interval interval_store;
-    bool armed = true;
+    ArmedType armed = ArmedType::INSTANT;
     bool isChanged = false;
 
     void store()
@@ -966,18 +1007,20 @@ private:
         {
             this->isChanged = device.isChanged || server.isChanged;
 
-            if (!this->isChanged)
-            {
+            /*
+                        if (!this->isChanged)
+                        {
 
-                for (byte i = 0; i < MAX_INTERVALS; i = i + 1)
-                {
-                    if (this->intervals[i].isChanged)
-                    {
-                        this->isChanged = true;
-                        break;
-                    }
-                }
-            }
+                            for (byte i = 0; i < MAX_INTERVALS; i = i + 1)
+                            {
+                                if (this->intervals[i].isChanged)
+                                {
+                                    this->isChanged = true;
+                                    break;
+                                }
+                            }
+                        }
+                        */
 
             if (!this->isChanged)
             {

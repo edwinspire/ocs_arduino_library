@@ -1,6 +1,6 @@
 #include <ArduinoJson.h>
 #include <WebServer.cpp>
-#include <LocalStore.cpp>
+//#include <LocalStore.cpp>
 #include <Inputpin.cpp>
 #include <Outputpin.cpp>
 #include <Interval.cpp>
@@ -26,30 +26,32 @@ namespace ocs
     const String default_deviceid = "00a0aa00-aa00-0000-0000-000000000000";
     //    const byte MAX_TELEGRAM_GROUPS = 3;
 
-    const char json_key_wf[3] = "wf";
-    const char json_key_input[2] = "i";
-    const char json_key_output[2] = "o";
-    const char json_key_gpio[5] = "gpio";
-    const char json_key_enabled[8] = "enabled";
-    const char json_key_name[5] = "name";
-    const char json_key_ssid[5] = "ssid";
-    const char json_key_pwd[4] = "pwd";
-    const char json_key_latitude[9] = "latitude";
-    const char json_key_longitude[10] = "longitude";
-    const char json_key_event[6] = "event";
-    const char json_key_led[4] = "led";
-    const char json_key_caCert_fingerPrint[4] = "cfp";
-    const char json_key_deviceId[9] = "deviceId";
-    const char json_key_acbgl[6] = "acbgl";
-    const char json_key_wshost[7] = "wsHost";
-    const char json_key_status[7] = "status";
-    const char json_key_value[6] = "value";
-    const char json_key_geo[4] = "geo";
-    const char json_key_info[5] = "info";
-    const char json_key_function[3] = "fn";
-    const char json_key_password_admin[5] = "pwda";
-    const char json_key_password_user[5] = "pwdu";
-    const char json_key_domainName[11] = "domainName";
+    /*
+        const char json_key_wf[3] = "wf";
+        const char json_key_input[2] = "i";
+        const char json_key_output[2] = "o";
+        const char json_key_gpio[5] = "gpio";
+        const char json_key_enabled[8] = "enabled";
+        const char json_key_name[5] = "name";
+        const char json_key_ssid[5] = "ssid";
+        const char json_key_pwd[4] = "pwd";
+        const char json_key_latitude[9] = "latitude";
+        const char json_key_longitude[10] = "longitude";
+        const char json_key_event[6] = "event";
+        const char json_key_led[4] = "led";
+        const char json_key_caCert_fingerPrint[4] = "cfp";
+        const char json_key_deviceId[9] = "deviceId";
+        const char json_key_acbgl[6] = "acbgl";
+        const char json_key_wshost[7] = "wsHost";
+        const char json_key_status[7] = "status";
+        const char json_key_value[6] = "value";
+        const char json_key_geo[4] = "geo";
+        const char json_key_info[5] = "info";
+        const char json_key_function[3] = "fn";
+        const char json_key_password_admin[5] = "pwda";
+        const char json_key_password_user[5] = "pwdu";
+        const char json_key_domainName[11] = "domainName";
+      */
     // json_key_info
     // const char json_key_outputs[8] = "outputs";
     // const char json_key_inputs[7] = "inputs";
@@ -101,7 +103,7 @@ namespace ocs
         {
             StaticJsonDocument<32> doc;
             doc[json_key_ssid] = this->ssid;
-            doc[json_key_pwd] = this->pwd;
+            doc[json_key_password] = this->pwd;
             return doc;
         }
     };
@@ -376,6 +378,7 @@ namespace ocs
         String ssid;
         bool WifiConnected = false;
 
+/*
         void setAlarm(ocs::input::SirenType at)
         {
 
@@ -405,7 +408,7 @@ namespace ocs
                 }
             }
         }
-
+*/
         void loop()
         {
 
@@ -432,41 +435,26 @@ namespace ocs
 #if MAX_INPUTS > 0
             for (byte i = 0; i < MAX_INPUTS; i = i + 1)
             {
-                if (this->inputs[i].changed())
-                {
-
-                    if (this->inputs[i].status == ocs::input::Status::ALARM)
-                    {
-                        this->setAlarm(ocs::input::SirenType::CONTINUOUS);
-                    }
-
-                    DynamicJsonDocument doc(1024);
-
-                    doc[json_key_event][json_key_deviceId] = this->ConfigParameter.deviceId;
-                    doc[json_key_event][F("input")] = this->inputs[i].toJson();
-                    doc[json_key_event][json_key_latitude] = this->ConfigParameter.latitude;
-                    doc[json_key_event][json_key_longitude] = this->ConfigParameter.longitude;
-                    doc[json_key_event][json_key_acbgl] = this->ConfigParameter.allowActivationByGeolocation;
-
-                    this->wssend(doc);
-                }
+                this->inputs[i].loop();
             }
 #endif
         }
 
-        DynamicJsonDocument setFromJson(DynamicJsonDocument json)
-        {
+        /*
+                DynamicJsonDocument setFromJson(DynamicJsonDocument json)
+                {
 
-            // serializeJsonPretty(json, Serial);
-            if (json != NULL)
-            {
-                // Serial.println(F("Ingresa a setFromJson"));
-                this->ConfigParameter.fromJson(json);
-                this->ConfigParameter.saveLocalStorage();
-            }
+                    // serializeJsonPretty(json, Serial);
+                    if (json != NULL)
+                    {
+                        // Serial.println(F("Ingresa a setFromJson"));
+                        this->ConfigParameter.fromJson(json);
+                        this->ConfigParameter.saveLocalStorage();
+                    }
 
-            return this->ConfigParameter.toJson();
-        }
+                    return this->ConfigParameter.toJson();
+                }
+                */
 
         DynamicJsonDocument toJson()
         {
@@ -490,10 +478,10 @@ namespace ocs
 
             if (this->WifiConnected)
             {
-                Serial.println(this->ConfigParameter.websocketHostRequest);
+                Serial.println(this->ConfigParameter.server.getUrlServer());
 
                 HttpWebsocketServer::freeMemory();
-                bool connected = this->wsclient.connect(this->ConfigParameter.websocketHostRequest);
+                bool connected = this->wsclient.connect(this->ConfigParameter.server.getUrlServer());
 
                 if (connected)
                 {
@@ -537,6 +525,7 @@ namespace ocs
             ocsWebAdmin.setUserPwd(this->ConfigParameter.device.getPwdAdm().c_str());
 
             this->setUpInputs();
+
             this->setUpOutputs();
 
             this->led.setup(this->ConfigParameter.led, true);
@@ -617,6 +606,116 @@ namespace ocs
         }
 
     private:
+        void alarm(byte position, ocs::input::Status status, ZoneType zone_type)
+        {
+            sendAlarmInputEvent(position, status);
+            linkedOutputsAction(position, status, zone_type);
+        }
+
+        void linkedOutputsAction(byte position, ocs::input::Status status, ZoneType zone_type)
+        {
+
+            for (byte i = 0; i < MAX_OUTPUTS_LINKED; i = i + 1)
+            {
+
+                for (byte i1 = 0; i1 < MAX_OUTPUTS; i1 = i1 + 1)
+                {
+
+                    if (this->outputs[i1].enabled && this->outputs[i1].getGPIO() == this->ConfigParameter.inputs[position].getOuts()[i].getGpio())
+                    {
+                        // Aqui ejecutar la acción sobre la salida
+                        switch (zone_type)
+                        {
+                        case ZoneType::BUTTON:
+                            if (status == ocs::input::Status::ALARM)
+                            {
+                                this->outputs[i1].high();
+                            }
+                            else
+                            {
+                                this->outputs[i1].low();
+                            }
+                            break;
+                        case ZoneType::TOGGLE:
+                            if (status == ocs::input::Status::ALARM)
+                            {
+                                this->outputs[i1].toggle();
+                            }
+                            break;
+
+                        default:
+                            this->outputs[i1].blink_by_time(this->ConfigParameter.inputs[position].getOuts()[i].getLowTime(), this->ConfigParameter.inputs[position].getOuts()[i].geHighTime(), this->ConfigParameter.inputs[position].getOuts()[i].geTotalTime());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        void sendAlarmInputEvent(byte position, ocs::input::Status status)
+        {
+            DynamicJsonDocument doc(256);
+            doc[json_key_event][json_key_device_id] = this->ConfigParameter.device.getDeviceID();
+            doc[json_key_event][json_key_input][json_key_status] = status;
+            doc[json_key_event][json_key_input][json_key_label] = this->ConfigParameter.inputs[position].getLabel();
+            doc[json_key_event][json_key_input][json_key_report] = this->ConfigParameter.inputs[position].getReport();
+
+            this->wssend(doc);
+        }
+
+        void onChangeStatusInput(byte position, ocs::input::Status status)
+        {
+
+            // Verifica el tipo de zona para procesar según el caso
+            switch (this->ConfigParameter.inputs[position].getZoneType())
+            {
+            case ZoneType::ALWAYS:
+                // Emite una alarma siempre
+                this->alarm(position, status, ZoneType::ALWAYS);
+                break;
+
+            case ZoneType::ARM_DISARM:
+                // Arma y desarma el sistema
+                break;
+
+            case ZoneType::DELAY:
+                // Verifica si el sistema esta armado y si se terminó el tiempo de retardo para emitir una señal
+                break;
+
+            case ZoneType::INTERIOR:
+                // Verifica el tipo de armado del sistema para emitir una señal
+
+                if (this->ConfigParameter.getArmed() == ArmedType::INSTANT || this->ConfigParameter.getArmed() == ArmedType::WITH_DELAY)
+                {
+                    this->alarm(position, status, ZoneType::INTERIOR);
+                }
+
+                break;
+
+            case ZoneType::NORMAL:
+                // Verifica si el sistema está armado para emitir una señal de alarma
+                if (this->ConfigParameter.getArmed() != ArmedType::DISARMED)
+                {
+                    this->alarm(position, status, ZoneType::NORMAL);
+                }
+                break;
+
+            case ZoneType::BUTTON:
+                // Independiente si el sistema está armado o no, comanda una o varias salidas
+                 linkedOutputsAction(position, status, ZoneType::BUTTON);
+                break;
+
+            case ZoneType::TOGGLE:
+                // Independiente si el sistema está armado o no, comanda una o varias salidas
+                  linkedOutputsAction(position, status, ZoneType::TOGGLE);
+                break;
+
+            default:
+                // Para otros casos
+                break;
+            }
+        }
+
         bool changePassword(bool isAdmin, const char *old_pwd, const char *new_pwd)
         {
 
@@ -698,70 +797,71 @@ namespace ocs
                                                                                           {
                                                                                               if (ocsWebAdmin.CheckToken(request))
                                                                                               {
-                                                                                                  this->ConfigParameter.setConfigInfo(json);
+                                                                                                  this->ConfigParameter.fromJson(json);
                                                                                                   this->existsConfigChanged = true;
                                                                                                   request->send(200, JSON_MIMETYPE, "{}");
                                                                                               } });
+        /*
+                // set info device
+                AsyncCallbackJsonWebHandler *handlerdevInfoPost = new AsyncCallbackJsonWebHandler("/device/info", [&](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                                  {
+                                                                                                      if (ocsWebAdmin.CheckToken(request))
+                                                                                                      {
+                                                                                                          this->ConfigParameter.setConfigInfo(json);
+                                                                                                          this->existsConfigChanged = true;
+                                                                                                          request->send(200, JSON_MIMETYPE, "{}");
+                                                                                                      } });
 
-        // set info device
-        AsyncCallbackJsonWebHandler *handlerdevInfoPost = new AsyncCallbackJsonWebHandler("/device/info", [&](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                                          {
-                                                                                              if (ocsWebAdmin.CheckToken(request))
-                                                                                              {
-                                                                                                  this->ConfigParameter.setConfigInfo(json);
-                                                                                                  this->existsConfigChanged = true;
-                                                                                                  request->send(200, JSON_MIMETYPE, "{}");
-                                                                                              } });
+                // set geolocation
+                AsyncCallbackJsonWebHandler *handlerdevgeoPost = new AsyncCallbackJsonWebHandler("/device/geolocation", [&](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                                 {
+                                                                                                     if (ocsWebAdmin.CheckToken(request))
+                                                                                                     {
+                                                                                                         this->ConfigParameter.latitude = json[json_key_latitude].as<String>();
+                                                                                                         this->ConfigParameter.longitude = json[json_key_longitude].as<String>();
+                                                                                                         this->ConfigParameter.allowActivationByGeolocation = json[json_key_acbgl].as<boolean>();
+                                                                                                         this->existsConfigChanged = true;
+                                                                                                         request->send(200, JSON_MIMETYPE, "{}");
+                                                                                                     }
+                                                                                                     //  serializeJsonPretty(json, Serial);
+                                                                                                 });
 
-        // set geolocation
-        AsyncCallbackJsonWebHandler *handlerdevgeoPost = new AsyncCallbackJsonWebHandler("/device/geolocation", [&](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                                         {
-                                                                                             if (ocsWebAdmin.CheckToken(request))
-                                                                                             {
-                                                                                                 this->ConfigParameter.latitude = json[json_key_latitude].as<String>();
-                                                                                                 this->ConfigParameter.longitude = json[json_key_longitude].as<String>();
-                                                                                                 this->ConfigParameter.allowActivationByGeolocation = json[json_key_acbgl].as<boolean>();
-                                                                                                 this->existsConfigChanged = true;
-                                                                                                 request->send(200, JSON_MIMETYPE, "{}");
-                                                                                             }
-                                                                                             //  serializeJsonPretty(json, Serial);
-                                                                                         });
+                // set wifi
+                AsyncCallbackJsonWebHandler *handlerdevwifiPost = new AsyncCallbackJsonWebHandler("/device/wifi", [&](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                                  {
+                                                                                                      if (ocsWebAdmin.CheckToken(request))
+                                                                                                      {
+                                                                                                          this->ConfigParameter.setConfigWifi(json);
+                                                                                                          this->existsConfigChanged = true;
+                                                                                                          request->send(200, JSON_MIMETYPE, "{}");
+                                                                                                      } });
+                // set inputs
+                AsyncCallbackJsonWebHandler *handlerdevInputsPost = new AsyncCallbackJsonWebHandler("/device/inputs", [&](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                                    {
+                                                        if (ocsWebAdmin.CheckToken(request)){
+                                            this->ConfigParameter.setConfigInputs(json);
+                                                                                                this->existsConfigChanged = true;
+                                                                                        request->send(200, JSON_MIMETYPE, "{}");
+                                                        } });
 
-        // set wifi
-        AsyncCallbackJsonWebHandler *handlerdevwifiPost = new AsyncCallbackJsonWebHandler("/device/wifi", [&](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                                          {
-                                                                                              if (ocsWebAdmin.CheckToken(request))
-                                                                                              {
-                                                                                                  this->ConfigParameter.setConfigWifi(json);
-                                                                                                  this->existsConfigChanged = true;
-                                                                                                  request->send(200, JSON_MIMETYPE, "{}");
-                                                                                              } });
-        // set inputs
-        AsyncCallbackJsonWebHandler *handlerdevInputsPost = new AsyncCallbackJsonWebHandler("/device/inputs", [&](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                                            { 
-                                                if (ocsWebAdmin.CheckToken(request)){
-                                    this->ConfigParameter.setConfigInputs(json);
-                                                                                        this->existsConfigChanged = true;
-                                                                                request->send(200, JSON_MIMETYPE, "{}");
-                                                } });
+                // set outputs
+                AsyncCallbackJsonWebHandler *handlerdevOutputsPost = new AsyncCallbackJsonWebHandler("/device/outputs", [&](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                                     {
+                                                                                         if (ocsWebAdmin.CheckToken(request)){
+            this->ConfigParameter.setConfigoutputs(json);
+                                                                                                this->existsConfigChanged = true;
+                                                                                        request->send(200, JSON_MIMETYPE, "{}");
+                                                                                         } });
 
-        // set outputs
-        AsyncCallbackJsonWebHandler *handlerdevOutputsPost = new AsyncCallbackJsonWebHandler("/device/outputs", [&](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                                             { 
-                                                                                 if (ocsWebAdmin.CheckToken(request)){
-    this->ConfigParameter.setConfigoutputs(json);
-                                                                                        this->existsConfigChanged = true;
-                                                                                request->send(200, JSON_MIMETYPE, "{}");
-                                                                                 } });
-
-        // set cert
-        AsyncCallbackJsonWebHandler *handlerCertPost = new AsyncCallbackJsonWebHandler("/device/cert", [&](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                                       { 
-                                                                            if (ocsWebAdmin.CheckToken(request)){
-        this->ConfigParameter.caCert_fingerPrint = json[json_key_caCert_fingerPrint].as<String>();
-                                                                                        this->existsConfigChanged = true;
-                                                                                request->send(200, JSON_MIMETYPE, "{}");
-                                                                            } });
+                // set cert
+                AsyncCallbackJsonWebHandler *handlerCertPost = new AsyncCallbackJsonWebHandler("/device/cert", [&](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                               {
+                                                                                    if (ocsWebAdmin.CheckToken(request)){
+                this->ConfigParameter.caCert_fingerPrint = json[json_key_caCert_fingerPrint].as<String>();
+                                                                                                this->existsConfigChanged = true;
+                                                                                        request->send(200, JSON_MIMETYPE, "{}");
+                                                                                    } });
+                                                                                    */
 
         void setUpWebAdmin()
         {
@@ -772,74 +872,76 @@ namespace ocs
             ocsWebAdmin.addHandler(handlerdevChangePwdPost);
 
             // get device info
-            ocsWebAdmin.on("/device/info", HTTP_GET, [&](AsyncWebServerRequest *request)
+            ocsWebAdmin.on("/device/configuration", HTTP_GET, [&](AsyncWebServerRequest *request)
                            {
                                if (ocsWebAdmin.CheckToken(request))
                                {
                                 //Serial.println(F("/device/info para del checktoken"));
-request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getInfo()));
+request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.toJson()));
 
                                } });
 
             // set device info
             ocsWebAdmin.addHandler(handlerdevInfoPost);
 
-            // get geolocation
-            ocsWebAdmin.on("/device/geolocation", HTTP_GET, [&](AsyncWebServerRequest *request)
-                           {
-                               if (ocsWebAdmin.CheckToken(request))
-                               {
-                                   request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getGeolocation()));
-                               } });
+            /*
+                        // get geolocation
+                        ocsWebAdmin.on("/device/geolocation", HTTP_GET, [&](AsyncWebServerRequest *request)
+                                       {
+                                           if (ocsWebAdmin.CheckToken(request))
+                                           {
+                                               request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getGeolocation()));
+                                           } });
 
-            // set geolocation
-            ocsWebAdmin.addHandler(handlerdevgeoPost);
+                        // set geolocation
+                        ocsWebAdmin.addHandler(handlerdevgeoPost);
 
-            // get wifi
-            ocsWebAdmin.on("/device/wifi", HTTP_GET, [&](AsyncWebServerRequest *request)
-                           {
-                               if (ocsWebAdmin.CheckToken(request))
-                               {
-                                   request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getConfigWifi()));
-                               } });
+                        // get wifi
+                        ocsWebAdmin.on("/device/wifi", HTTP_GET, [&](AsyncWebServerRequest *request)
+                                       {
+                                           if (ocsWebAdmin.CheckToken(request))
+                                           {
+                                               request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getConfigWifi()));
+                                           } });
 
-            // set wifi
-            ocsWebAdmin.addHandler(handlerdevwifiPost);
+                        // set wifi
+                        ocsWebAdmin.addHandler(handlerdevwifiPost);
 
-            // get inputs
-            ocsWebAdmin.on("/device/inputs", HTTP_GET, [&](AsyncWebServerRequest *request)
-                           {
-                               if (ocsWebAdmin.CheckToken(request))
-                               {
-                                   request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getConfigInputs()));
-                               } });
+                        // get inputs
+                        ocsWebAdmin.on("/device/inputs", HTTP_GET, [&](AsyncWebServerRequest *request)
+                                       {
+                                           if (ocsWebAdmin.CheckToken(request))
+                                           {
+                                               request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getConfigInputs()));
+                                           } });
 
-            // set inputs
-            ocsWebAdmin.addHandler(handlerdevInputsPost);
+                        // set inputs
+                        ocsWebAdmin.addHandler(handlerdevInputsPost);
 
-            // get outputs
-            ocsWebAdmin.on("/device/outputs", HTTP_GET, [&](AsyncWebServerRequest *request)
-                           {
-                               if (ocsWebAdmin.CheckToken(request))
-                               {
-                                   request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getConfigoutputs()));
-                               } });
+                        // get outputs
+                        ocsWebAdmin.on("/device/outputs", HTTP_GET, [&](AsyncWebServerRequest *request)
+                                       {
+                                           if (ocsWebAdmin.CheckToken(request))
+                                           {
+                                               request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this->ConfigParameter.getConfigoutputs()));
+                                           } });
 
-            // set outputs
-            ocsWebAdmin.addHandler(handlerdevOutputsPost);
+                        // set outputs
+                        ocsWebAdmin.addHandler(handlerdevOutputsPost);
 
-            // get cert
-            ocsWebAdmin.on("/device/cert", HTTP_GET, [&](AsyncWebServerRequest *request)
-                           {
-                               if (ocsWebAdmin.CheckToken(request))
-                               {
-                                   DynamicJsonDocument doc(2048);
-                                   doc[json_key_caCert_fingerPrint] = this->ConfigParameter.caCert_fingerPrint;
-                                   request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(doc));
-                               } });
+                        // get cert
+                        ocsWebAdmin.on("/device/cert", HTTP_GET, [&](AsyncWebServerRequest *request)
+                                       {
+                                           if (ocsWebAdmin.CheckToken(request))
+                                           {
+                                               DynamicJsonDocument doc(2048);
+                                               doc[json_key_caCert_fingerPrint] = this->ConfigParameter.caCert_fingerPrint;
+                                               request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(doc));
+                                           } });
 
-            // set cert
-            ocsWebAdmin.addHandler(handlerCertPost);
+                        // set cert
+                        ocsWebAdmin.addHandler(handlerCertPost);
+            */
 
             /// reboot
             ocsWebAdmin.on("/device/reboot", [&](AsyncWebServerRequest *request)
@@ -860,13 +962,13 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
 
         void setUpwebSocket()
         {
-            if (this->ConfigParameter.websocketHost.startsWith("wss"))
+            if (this->ConfigParameter.server.getSecure())
             {
 
 #ifdef ESP32
-                this->wsclient.setCACert(this->ConfigParameter.caCert_fingerPrint.c_str());
+                this->wsclient.setCACert(this->ConfigParameter.server.getcertificate().c_str());
 #elif defined(ESP8266)
-                this->wsclient.setFingerprint(this->ConfigParameter.caCert_fingerPrint.c_str());
+                this->wsclient.setFingerprint(this->ConfigParameter.server.getcertificate().c_str());
 #endif
             }
 
@@ -927,8 +1029,10 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
             {
                 // this->inputs[i].setup(this->ConfigParameter.input[i].gpio, this->ConfigParameter.input[i].name, this->ConfigParameter.input[i].enabled);
                 this->inputs[i].setup(
-                    // this->ConfigParameter.inputs[i].getGpio(), this->ConfigParameter.inputs[i].getName(), this->ConfigParameter.inputs[i].getEnabled(),
-                );
+                    i, this->ConfigParameter.inputs[i].getGpio(), this->ConfigParameter.inputs[i].getEnabled(), this->ConfigParameter.inputs[i].getZoneType(), this->ConfigParameter.inputs[i].getContactType());
+
+                this->inputs[i].onChangeStatus([&](byte position, byte gpio, uint16_t value, ocs::input::Status status) -> void
+                                               { this->onChangeStatusInput(position, status); });
             }
         }
 
@@ -962,12 +1066,12 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
             {
                 Serial.println(F("SET ALARM..."));
                 // Serial.println(doc["siren_type"].as<const char *>());
-                ocs::input::SirenType siren_type = doc[F("siren_type")];
-                this->setAlarm(siren_type);
+                // ocs::input::SirenType siren_type = doc[F("siren_type")];
+                // this->setAlarm(siren_type);
             }
             break;
             case 1000: // Set deviceId
-                this->ConfigParameter.device.setDeviceID(doc[json_key_deviceId].as<String>());
+                this->ConfigParameter.device.setDeviceID(doc[json_key_device_id].as<String>());
                 Serial.println(F("seteada UUID"));
                 // this->ConfigParameter.saveLocalStorage();
                 break;
@@ -984,12 +1088,12 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
             {
                 Serial.println(F("Response configuration ..."));
                 DynamicJsonDocument doc(JSON_MAX_SIZE);
-                doc[F("data")] = this->toJson();
-                doc[F("data")][json_key_wf] = (char *)0;                 // Quitamos wf
-                doc[F("data")][json_key_caCert_fingerPrint] = (char *)0; // Quitamos cfp
-                doc[F("data")][json_key_info][F("ip")] = this->ip;
-                doc[F("data")][json_key_info][F("ssid")] = this->ssid;
-                doc[F("response")] = 1000;
+                doc[json_key_data] = this->toJson();
+                // doc[json_key_data][json_key_wf] = (char *)0;                 // Quitamos wf
+                // doc[json_key_data][json_key_caCert_fingerPrint] = (char *)0; // Quitamos cfp
+                doc[json_key_data][json_key_info][json_key_ip] = this->ip;
+                doc[json_key_data][json_key_info][json_key_ssid] = this->ssid;
+                doc[json_key_response] = 1000;
 
                 // serializeJson(doc, outputJson);
                 // doc.clear();

@@ -65,6 +65,23 @@ namespace edwinspire
             }
         }
 
+        int getValue()
+        {
+            return digitalRead(this->_outputPin);
+        }
+
+        void toggle()
+        {
+            if (this->getValue() == HIGH)
+            {
+                this->low();
+            }
+            else
+            {
+                this->high();
+            }
+        }
+
         void low(void)
         {
             if (this->enabled)
@@ -73,6 +90,25 @@ namespace edwinspire
                 this->_outputState = LOW;
                 digitalWrite(this->_outputPin, this->_outputState);
             }
+        }
+
+        void blink_by_time(unsigned long lowTime, unsigned long highTime, unsigned long total_time_ms)
+        {
+            long times = 1;
+            unsigned long timePulse = lowTime + highTime;
+            if (timePulse <= total_time_ms)
+            {
+                times = total_time_ms / timePulse;
+                Serial.print("Veces que se va a ejecutar el pulso: ");
+                Serial.println(times);
+
+                if (times <= 0)
+                {
+                    times = 1;
+                }
+            }
+
+            this->blink(lowTime, highTime, 0, times);
         }
 
         void blink(unsigned long lowTime, unsigned long highTime, unsigned long delayTime, long blinkTimes)
