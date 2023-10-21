@@ -1,83 +1,71 @@
 {
-    "name": "ocsArduinoLib",
-    "version": "1.0.0",
-    "description": "Open Community Safety Library",
-    "keywords": "arduino, ESP32, arduino, ESP8266",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/edwinspire/ocs_arduino_library.git"
+  "name": "ocsArduinoLib",
+  "version": "1.0.0",
+  "description": "Open Community Safety Library",
+  "keywords": "arduino, ESP32, arduino, ESP8266",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edwinspire/ocs_arduino_library.git"
+  },
+  "authors": [
+    {
+      "name": "edwinspire",
+      "email": "edwinspire@gmail.com",
+      "url": "https://github.com/edwinspire/"
+    }
+  ],
+  "license": "LGPL-2.1",
+  "homepage": "https://github.com/edwinspire/ocs_arduino_library",
+  "frameworks": "arduino",
+  "platforms": ["espressif8266", "espressif32"],
+  "dependencies": [
+    {
+      "name": "LittleFS",
+      "platforms": "espressif8266"
     },
-    "authors": [
-        {
-            "name": "edwinspire",
-            "email": "edwinspire@gmail.com",
-            "url": "https://github.com/edwinspire/"
-        }
-    ],
-    "license": "LGPL-2.1",
-    "homepage": "https://github.com/edwinspire/ocs_arduino_library",
-    "frameworks": "arduino",
-    "platforms": [
-        "espressif8266",
-        "espressif32"
-    ],
-    "dependencies": [
-        {
-            "name": "LittleFS",
-            "platforms": "espressif8266"
-        },
-        {
-            "name": "Hash",
-            "platforms": "espressif8266"
-        },
-        {
-            "name": "ESPAsyncTCP",
-            "platforms": "espressif8266"
-        },
-        {
-            "owner": "esphome",
-            "name": "ESPAsyncWebServer-esphome",
-            "version": "*",
-            "platforms": [
-                "espressif8266",
-                "espressif32"
-            ]
-        },
-        {
-            "name": "ESP8266WiFi",
-            "platforms": [
-                "espressif8266"
-            ]
-        },
-        {
-            "name": "Arduino",
-            "platforms": [
-                "espressif8266",
-                "espressif32"
-            ]
-        },
-        {
-            "owner": "bblanchon",
-            "name": "ArduinoJson",
-            "platforms": [
-                "espressif8266",
-                "espressif32"
-            ]
-        },
-        {
-            "owner": "gilmaimon",
-            "name": "ArduinoWebsockets",
-            "platforms": [
-                "espressif8266",
-                "espressif32"
-            ]
-        },
-        {
-            "name": "AsyncJson",
-            "platforms": [
-                "espressif8266",
-                "espressif32"
-            ]
-        }
-    ]
+    {
+      "name": "Hash",
+      "platforms": "espressif8266"
+    },
+    {
+      "name": "ESPAsyncTCP",
+      "platforms": "espressif8266"
+    },
+    {
+      "owner": "esphome",
+      "name": "ESPAsyncWebServer-esphome",
+      "version": "*",
+      "platforms": ["espressif8266", "espressif32"]
+    },
+    {
+      "name": "ESP8266WiFi",
+      "platforms": ["espressif8266"]
+    },
+    {
+      "name": "Arduino",
+      "platforms": ["espressif8266", "espressif32"]
+    },
+    {
+      "owner": "bblanchon",
+      "name": "ArduinoJson",
+      "platforms": ["espressif8266", "espressif32"]
+    },
+    {
+      "owner": "gilmaimon",
+      "name": "ArduinoWebsockets",
+      "platforms": ["espressif8266", "espressif32"]
+    },
+    {
+      "name": "AsyncJson",
+      "platforms": ["espressif8266", "espressif32"]
+    },
+    {
+      "name": "Base64",
+      "platforms": "*"
+    },
+    {
+      "name": "EEPROM",
+      "platforms": "*"
+    }
+  ]
 }
