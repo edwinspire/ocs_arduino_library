@@ -17,7 +17,18 @@ MAX_OUTPUTS = 1
     MAX_OUTPUTS_LINKED = 2
 #endif
 
-    const char json_key_name[5] = "name";
+#ifndef MAX_INPUTS
+    MAX_INPUTS = 1
+#endif
+
+#ifndef MAX_INPUTS
+    MAX_INPUTS = 1
+#endif
+
+    const char default_ssid_name[12] = "accesspoint";
+const char default_ssid_password[13] = "123456@qwert";
+
+const char json_key_name[5] = "name";
 const char json_key_device_id[10] = "device_id";
 const char json_key_model[6] = "model";
 const char json_key_version[8] = "version";
@@ -68,19 +79,48 @@ const char json_key_led[4] = "led";
 const char json_key_low_time[8] = "lowtime";
 const char json_key_high_time[9] = "hightime";
 const char json_key_total_time[10] = "totaltime";
+const char json_key_command[4] = "cmd";
+const char json_key_request[4] = "req";
+const char json_key_isalavive[10] = "isalavive";
+const char json_key_chip[5] = "chip";
+const char json_key_chip_model[11] = "chip_model";
+const char json_key_chip_version[13] = "chip_version";
+const char json_key_mac_address[4] = "mac";
+const char json_key_ocs[4] = "ocs";
+
+
+bool checkChangeValueString(String oldValue, String newValue, bool currentIsChanged)
+{
+    return currentIsChanged || oldValue != newValue;
+}
+
+bool checkChangeValueByte(byte oldValue, byte newValue, bool currentIsChanged)
+{
+    return currentIsChanged || oldValue != newValue;
+}
+
+bool checkChangeValueBool(byte oldValue, byte newValue, bool currentIsChanged)
+{
+    return currentIsChanged || oldValue != newValue;
+}
+
+bool checkChangeValueUlong(unsigned long oldValue, unsigned long newValue, bool currentIsChanged)
+{
+    return currentIsChanged || oldValue != newValue;
+}
 
 class SSID
 {
 private:
-    String ssid = "user";
-    String password = "pwd";
+    String ssid = "";
+    String password = "";
 
 public:
     bool isChanged = false;
 
     DynamicJsonDocument toJson()
     {
-        DynamicJsonDocument jsonDocument(64);
+        DynamicJsonDocument jsonDocument(128);
 
         // Agrega las propiedades al objeto JSON
         jsonDocument[json_key_ssid] = ssid;
@@ -94,13 +134,12 @@ public:
         // Verifica si las propiedades existen en el JSON antes de asignarlas
         if (jsonDocument.containsKey(json_key_ssid))
         {
-            ssid = jsonDocument[json_key_ssid].as<String>();
+            setSSID(jsonDocument[json_key_ssid].as<String>());
         }
         if (jsonDocument.containsKey(json_key_password))
         {
-            password = jsonDocument[json_key_password].as<String>();
+            setPassword(jsonDocument[json_key_password].as<String>());
         }
-        this->isChanged = true;
     }
 
     // Getter para up
@@ -112,8 +151,8 @@ public:
     // Setter para up
     void setSSID(const String newValue)
     {
+        isChanged = checkChangeValueString(ssid, newValue, isChanged);
         ssid = newValue;
-        isChanged = true;
     }
 
     // Getter para down
@@ -125,8 +164,8 @@ public:
     // Setter para down
     void setPassword(const String newValue)
     {
+        isChanged = checkChangeValueString(password, newValue, isChanged);
         password = newValue;
-        isChanged = true;
     }
 };
 
@@ -136,15 +175,15 @@ class Output
 private:
     byte gpio = 255;
     bool enabled = false;
-    String name = "";
-    String label = "";
+    String name = "ocs";
+    String label = "out";
 
 public:
     bool isChanged = false;
 
     DynamicJsonDocument toJson()
     {
-        DynamicJsonDocument jsonDocument(64);
+        DynamicJsonDocument jsonDocument(128);
         // Agrega las propiedades al objeto JSON
         jsonDocument[json_key_gpio] = gpio;
         jsonDocument[json_key_enabled] = enabled;
@@ -158,21 +197,20 @@ public:
         // Verifica si las propiedades existen en el JSON antes de asignarlas
         if (jsonDocument.containsKey(json_key_gpio))
         {
-            gpio = jsonDocument[json_key_gpio].as<byte>();
+            setGpio(jsonDocument[json_key_gpio].as<byte>());
         }
         if (jsonDocument.containsKey(json_key_enabled))
         {
-            enabled = jsonDocument[json_key_enabled].as<bool>();
+            setEnabled(jsonDocument[json_key_enabled].as<bool>());
         }
         if (jsonDocument.containsKey(json_key_name))
         {
-            name = jsonDocument[json_key_name].as<String>();
+            setName(jsonDocument[json_key_name].as<String>());
         }
         if (jsonDocument.containsKey(json_key_label))
         {
-            label = jsonDocument[json_key_label].as<String>();
+            setLabel(jsonDocument[json_key_label].as<String>());
         }
-        this->isChanged = true;
     }
 
     // Getter para gpio
@@ -184,8 +222,8 @@ public:
     // Setter para gpio
     void setGpio(byte newValue)
     {
+        this->isChanged = checkChangeValueByte(gpio, newValue, isChanged);
         gpio = newValue;
-        isChanged = true;
     }
 
     // Getter para enabled
@@ -197,8 +235,8 @@ public:
     // Setter para enabled
     void setEnabled(bool newValue)
     {
+        this->isChanged = checkChangeValueBool(enabled, newValue, isChanged);
         enabled = newValue;
-        isChanged = true;
     }
 
     // Getter para name
@@ -210,8 +248,8 @@ public:
     // Setter para name
     void setName(const String &newValue)
     {
+        this->isChanged = checkChangeValueString(name, newValue, isChanged);
         name = newValue;
-        isChanged = true;
     }
 
     // Getter para label
@@ -223,10 +261,23 @@ public:
     // Setter para label
     void setLabel(const String &newValue)
     {
+        this->isChanged = checkChangeValueString(label, newValue, isChanged);
         label = newValue;
-        isChanged = true;
     }
 };
+
+enum RequestToServer : byte
+{
+    REGISTER = 1 //Register on the server
+};
+
+
+enum CommandFromServer : byte
+{
+    NEW_DEVICE_ID = 1, //Register on the server
+    OCS_ALARM = 2
+};
+
 
 // Contact Type Enum 1: Normal Open, 2: Normal Close, 0: No used,
 enum ContactType : uint8_t
@@ -275,8 +326,8 @@ public:
 
     void setLowTime(unsigned long newValue)
     {
+        isChanged = checkChangeValueUlong(lowTime, newValue, isChanged);
         lowTime = newValue;
-        isChanged = true;
     }
 
     unsigned long geHighTime() const
@@ -286,8 +337,8 @@ public:
 
     void setHighTime(unsigned long newValue)
     {
+        isChanged = checkChangeValueUlong(highTime, newValue, isChanged);
         highTime = newValue;
-        isChanged = true;
     }
 
     unsigned long geTotalTime() const
@@ -297,8 +348,8 @@ public:
 
     void setTotalTime(unsigned long newValue)
     {
+        isChanged = checkChangeValueUlong(totalTime, newValue, isChanged);
         totalTime = newValue;
-        isChanged = true;
     }
 
     // Getter para gpio
@@ -310,11 +361,11 @@ public:
     // Setter para gpio
     void setGpio(byte newGpio)
     {
+        isChanged = checkChangeValueByte(gpio, newGpio, isChanged);
         gpio = newGpio;
-        isChanged = true;
     }
 
-    // Método toJson para convertir a JSON
+    // M�todo toJson para convertir a JSON
     DynamicJsonDocument toJson() const
     {
         DynamicJsonDocument jsonDocument(16);
@@ -325,20 +376,28 @@ public:
         return jsonDocument;
     }
 
-    // Método fromJson para asignar valores desde JSON
+    // M�todo fromJson para asignar valores desde JSON
     void fromJson(const DynamicJsonDocument &jsonDocument)
     {
         if (jsonDocument.containsKey(json_key_gpio))
         {
-            gpio = jsonDocument[json_key_gpio].as<byte>();
+            setGpio(jsonDocument[json_key_gpio].as<byte>());
         }
-        /*
-        if (jsonDocument.containsKey(json_key_interval))
+
+        if (jsonDocument.containsKey(json_key_low_time))
         {
-            interval = jsonDocument[json_key_interval].as<byte>();
+            setLowTime(jsonDocument[json_key_low_time].as<unsigned long>());
         }
-        */
-        isChanged = true;
+
+        if (jsonDocument.containsKey(json_key_high_time))
+        {
+            setHighTime(jsonDocument[json_key_high_time].as<unsigned long>());
+        }
+
+        if (jsonDocument.containsKey(json_key_total_time))
+        {
+            setTotalTime(jsonDocument[json_key_total_time].as<unsigned long>());
+        }
     }
 };
 
@@ -350,9 +409,9 @@ private:
     String name = "";
     String label = "";
     bool enabled = false;
-    ContactType contact_type;
-    ZoneType zone_type;
-    bool report = false; // Reportar evento a grupo telegram - Sim embargo siempre reportará de forma individual a los usuarios que hayan registrado el dispositivo como propio
+    ContactType contact_type = ContactType::NORMALLY_CLOSED;
+    ZoneType zone_type = ZoneType::UNUSED;
+    bool report = false; // Reportar evento a grupo telegram - Sim embargo siempre reportar� de forma individual a los usuarios que hayan registrado el dispositivo como propio
     LinkedOutputs outs[MAX_OUTPUTS_LINKED];
     // byte interval = 0;
 
@@ -368,8 +427,8 @@ public:
         jsonDocument[json_key_name] = name;
         jsonDocument[json_key_label] = label;
         jsonDocument[json_key_enabled] = enabled;
-        jsonDocument[contact_type] = static_cast<byte>(contact_type);
-        jsonDocument[zone_type] = static_cast<byte>(zone_type);
+        jsonDocument[json_key_contact_type] = static_cast<byte>(contact_type);
+        jsonDocument[json_key_zone_type] = static_cast<byte>(zone_type);
         jsonDocument[json_key_report] = report;
         // jsonDocument[json_key_interval] = interval;
 
@@ -385,31 +444,31 @@ public:
     {
         if (jsonDocument.containsKey(json_key_gpio))
         {
-            gpio = jsonDocument[json_key_gpio].as<byte>();
+            setGpio(jsonDocument[json_key_gpio].as<byte>());
         }
         if (jsonDocument.containsKey(json_key_name))
         {
-            name = jsonDocument[json_key_name].as<String>();
+            setName(jsonDocument[json_key_name].as<String>());
         }
         if (jsonDocument.containsKey(json_key_label))
         {
-            label = jsonDocument[json_key_label].as<String>();
+            setLabel(jsonDocument[json_key_label].as<String>());
         }
         if (jsonDocument.containsKey(json_key_enabled))
         {
-            enabled = jsonDocument[json_key_enabled].as<bool>();
+            setEnabled(jsonDocument[json_key_enabled].as<bool>());
         }
         if (jsonDocument.containsKey(json_key_contact_type))
         {
-            contact_type = static_cast<ContactType>(jsonDocument[json_key_contact_type].as<byte>());
+            setContactType(static_cast<ContactType>(jsonDocument[json_key_contact_type].as<byte>()));
         }
         if (jsonDocument.containsKey(json_key_zone_type))
         {
-            zone_type = static_cast<ZoneType>(jsonDocument[json_key_zone_type].as<byte>());
+            setZoneType(static_cast<ZoneType>(jsonDocument[json_key_zone_type].as<byte>()));
         }
         if (jsonDocument.containsKey(json_key_report))
         {
-            report = jsonDocument[json_key_report].as<bool>();
+            setReport(jsonDocument[json_key_report].as<bool>());
         }
         /*
         if (jsonDocument.containsKey(json_key_interval))
@@ -420,15 +479,23 @@ public:
 
         if (jsonDocument.containsKey(json_key_output))
         {
-            //            JsonArray outsArray = jsonDocument[json_key_output].as<JsonArray>();
             for (int i = 0; i < MAX_OUTPUTS_LINKED; i++)
             {
                 outs[i].fromJson(jsonDocument[json_key_output][i]);
             }
+
+            for (int i = 0; i < MAX_OUTPUTS_LINKED; i++)
+            {
+                if (outs[i].isChanged)
+                {
+                    this->isChanged = true;
+                    break;
+                }
+            }
         }
 
         // Establece isChanged en true
-        isChanged = true;
+        //        isChanged = true;
     }
 
     // Getter para outs
@@ -444,7 +511,7 @@ public:
         {
             outs[i] = newOuts[i];
         }
-        isChanged = true;
+        //      isChanged = true;
     }
 
     // Getter para obtener el valor de gpio
@@ -456,8 +523,8 @@ public:
     // Setter para establecer el valor de gpio
     void setGpio(byte newGpio)
     {
+        isChanged = checkChangeValueByte(gpio, newGpio, isChanged);
         gpio = newGpio;
-        isChanged = true;
     }
 
     // Getter para obtener el valor de name
@@ -469,8 +536,8 @@ public:
     // Setter para establecer el valor de name
     void setName(const String &newName)
     {
+        isChanged = checkChangeValueString(name, newName, isChanged);
         name = newName;
-        isChanged = true;
     }
 
     // Getter para obtener el valor de label
@@ -482,8 +549,8 @@ public:
     // Setter para establecer el valor de label
     void setLabel(const String &newlabel)
     {
+        isChanged = checkChangeValueString(label, newlabel, isChanged);
         label = newlabel;
-        isChanged = true;
     }
 
     // Getter para obtener el valor de enabled
@@ -495,8 +562,8 @@ public:
     // Setter para establecer el valor de enabled
     void setEnabled(bool newEnabled)
     {
+        isChanged = checkChangeValueBool(enabled, newEnabled, isChanged);
         enabled = newEnabled;
-        isChanged = true;
     }
 
     // Getter para obtener el valor de contact_type
@@ -508,8 +575,8 @@ public:
     // Setter para establecer el valor de contact_type
     void setContactType(ContactType newContactType)
     {
+        isChanged = checkChangeValueByte(contact_type, newContactType, isChanged);
         contact_type = newContactType;
-        isChanged = true;
     }
 
     // Getter para obtener el valor de zone_type
@@ -521,8 +588,8 @@ public:
     // Setter para establecer el valor de zone_type
     void setZoneType(ZoneType newZoneType)
     {
+        isChanged = checkChangeValueByte(zone_type, newZoneType, isChanged);
         zone_type = newZoneType;
-        isChanged = true;
     }
 
     // Getter para obtener el valor de report
@@ -534,8 +601,8 @@ public:
     // Setter para establecer el valor de report
     void setReport(bool newReport)
     {
+        isChanged = checkChangeValueBool(report, newReport, isChanged);
         report = newReport;
-        isChanged = true;
     }
 
     /*
@@ -558,7 +625,7 @@ class Device
 {
 private:
     String name = "device";
-    String device_id = "000000";
+    String device_id = "00a0aa00-aa00-0000-0000-000000000000";
     String model = "";
     String version = "";
     String pwd_adm = "9999999999";
@@ -576,8 +643,8 @@ public:
     // Setter para establecer el valor de name
     void setName(const String &newName)
     {
+        this->isChanged = checkChangeValueString(name, newName, isChanged);
         name = newName;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor de device_id
@@ -589,8 +656,8 @@ public:
     // Setter para establecer el valor de device_id
     void setDeviceID(const String &newDeviceID)
     {
+        this->isChanged = checkChangeValueString(device_id, newDeviceID, isChanged);
         device_id = newDeviceID;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor de model
@@ -602,8 +669,8 @@ public:
     // Setter para establecer el valor de model
     void setModel(const String &newModel)
     {
+        this->isChanged = checkChangeValueString(model, newModel, isChanged);
         model = newModel;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor de version
@@ -615,8 +682,8 @@ public:
     // Setter para establecer el valor de version
     void setVersion(const String &newVersion)
     {
+        this->isChanged = checkChangeValueString(version, newVersion, isChanged);
         version = newVersion;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor de pwd_adm
@@ -628,8 +695,8 @@ public:
     // Setter para establecer el valor de pwd_adm
     void setPwdAdm(const String &newPwdAdm)
     {
+        this->isChanged = checkChangeValueString(pwd_adm, newPwdAdm, isChanged);
         pwd_adm = newPwdAdm;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor de pwd_user
@@ -641,8 +708,8 @@ public:
     // Setter para establecer el valor de pwd_user
     void setPwdUser(const String &newPwdUser)
     {
+        this->isChanged = checkChangeValueString(pwd_user, newPwdUser, isChanged);
         pwd_user = newPwdUser;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor de entry_delay
@@ -651,46 +718,47 @@ public:
         return entry_delay;
     }
 
-    // Setter para establecer el valor de entry_delay
+    // Setter para establecer el valor de entry_delay en segundos
     void setEntryDelay(byte newEntryDelay)
     {
+        this->isChanged = checkChangeValueByte(entry_delay, newEntryDelay, isChanged);
         entry_delay = newEntryDelay;
-        this->isChanged = true;
     }
 
     void fromJson(const DynamicJsonDocument &jsonDocument)
     {
         if (jsonDocument.containsKey(json_key_name))
         {
-            name = jsonDocument[json_key_name].as<String>();
+
+            setName(jsonDocument[json_key_name].as<String>());
         }
         if (jsonDocument.containsKey(json_key_device_id))
         {
-            device_id = jsonDocument[json_key_device_id].as<String>();
+            setDeviceID(jsonDocument[json_key_device_id].as<String>());
         }
         if (jsonDocument.containsKey(json_key_model))
         {
-            model = jsonDocument[json_key_model].as<String>();
+            setModel(jsonDocument[json_key_model].as<String>());
         }
         if (jsonDocument.containsKey(json_key_version))
         {
-            version = jsonDocument[json_key_version].as<String>();
+            setVersion(jsonDocument[json_key_version].as<String>());
         }
         if (jsonDocument.containsKey(json_key_pwd_adm))
         {
-            pwd_adm = jsonDocument[json_key_pwd_adm].as<String>();
+            setPwdAdm(jsonDocument[json_key_pwd_adm].as<String>());
         }
         if (jsonDocument.containsKey(json_key_pwd_user))
         {
-            pwd_user = jsonDocument[json_key_pwd_user].as<String>();
+            setPwdUser(jsonDocument[json_key_pwd_user].as<String>());
         }
         if (jsonDocument.containsKey(json_key_delay))
         {
-            entry_delay = jsonDocument[json_key_delay].as<byte>();
+            setEntryDelay(jsonDocument[json_key_delay].as<byte>());
         }
 
         // Establece isChanged en true
-        isChanged = true;
+        // isChanged = true;
     }
 
     DynamicJsonDocument toJson()
@@ -717,7 +785,7 @@ private:
     String server = "";
     String username = "superuser";
     String password = "superuser";
-    String certificate = "HGHJJHGHJRTT";
+    String certificate = "";
     bool is_secure = false;
 
 public:
@@ -727,27 +795,27 @@ public:
     {
         if (jsonDocument.containsKey(json_key_websocket_server))
         {
-            server = jsonDocument[json_key_websocket_server].as<String>();
+            setServer(jsonDocument[json_key_websocket_server].as<String>());
         }
         if (jsonDocument.containsKey(json_key_username))
         {
-            username = jsonDocument[json_key_username].as<String>();
+            setUsername(jsonDocument[json_key_username].as<String>());
         }
         if (jsonDocument.containsKey(json_key_password))
         {
-            password = jsonDocument[json_key_password].as<String>();
+            setPassword(jsonDocument[json_key_password].as<String>());
         }
         if (jsonDocument.containsKey(json_key_certificate))
         {
-            certificate = jsonDocument[json_key_certificate].as<String>();
+            setCertificate(jsonDocument[json_key_certificate].as<String>());
         }
 
         if (jsonDocument.containsKey(json_key_is_secure))
         {
-            is_secure = jsonDocument[json_key_is_secure].as<bool>();
+            setSecure(jsonDocument[json_key_is_secure].as<bool>());
         }
         // Establece isChanged en true
-        isChanged = true;
+        // isChanged = true;
     }
 
     DynamicJsonDocument toJson()
@@ -774,19 +842,21 @@ public:
     // Setter para establecer el valor de websocket_server
     void setServer(const String &newwebsocket_server)
     {
+        isChanged = checkChangeValueString(server, newwebsocket_server, isChanged);
         server = newwebsocket_server;
-        this->isChanged = true;
     }
 
     String getUrlServer() const
     {
         if (this->is_secure)
         {
-            return "wss://" + username + ":" + password + "@" + this->server;
+            return "wss://" + this->server;
+            //return "wss://" + username + ":" + password + "@" + this->server;
         }
         else
         {
-            return "ws://" + username + ":" + password + "@" + this->server;
+             return "ws://" + this->server;
+           // return "ws://" + username + ":" + password + "@" + this->server;
         }
     }
 
@@ -799,8 +869,8 @@ public:
     // Setter para establecer el valor de websocket_server
     void setSecure(bool secure)
     {
+        isChanged = checkChangeValueBool(is_secure, secure, isChanged);
         is_secure = secure;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor de username
@@ -812,8 +882,8 @@ public:
     // Setter para establecer el valor de username
     void setUsername(const String &newUsername)
     {
+        isChanged = checkChangeValueString(username, newUsername, isChanged);
         username = newUsername;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor de password
@@ -825,8 +895,8 @@ public:
     // Setter para establecer el valor de password
     void setPassword(const String &newPassword)
     {
+        isChanged = checkChangeValueString(password, newPassword, isChanged);
         password = newPassword;
-        this->isChanged = true;
     }
 
     // Getter para obtener el valor
@@ -838,8 +908,8 @@ public:
     // Setter para establecer el valor
     void setCertificate(const String &cert)
     {
+        isChanged = checkChangeValueString(certificate, cert, isChanged);
         this->certificate = cert;
-        this->isChanged = true;
     }
 };
 
@@ -853,7 +923,6 @@ public:
     Output outputs[MAX_OUTPUTS];
     Input inputs[MAX_INPUTS];
     SSID ssids[MAX_SSID];
-    byte led = 255;
 
     Configuration()
     {
@@ -878,11 +947,19 @@ public:
 
         if (jsonDocument.containsKey(json_key_led))
         {
+            if (this->led != jsonDocument[json_key_led].as<byte>())
+            {
+                this->isChanged = true;
+            }
             this->led = jsonDocument[json_key_led].as<byte>();
         }
 
         if (jsonDocument.containsKey(json_key_armed))
         {
+            if (this->armed != jsonDocument[json_key_armed].as<ArmedType>())
+            {
+                this->isChanged = true;
+            }
             this->armed = jsonDocument[json_key_armed].as<ArmedType>();
         }
 
@@ -926,11 +1003,24 @@ public:
         {
             for (int i = 0; i < MAX_SSID; i++)
             {
-                ssids[i].fromJson(jsonDocument[json_key_ssid][i]);
+                if (i == 0)
+                {
+                    ssids[i].setSSID(default_ssid_name);
+                    ssids[i].setPassword(default_ssid_password);
+                }
+                else
+                {
+                    ssids[i].fromJson(jsonDocument[json_key_ssid][i]);
+                }
             }
         }
+        else
+        {
+            ssids[0].setSSID(default_ssid_name);
+            ssids[0].setPassword(default_ssid_password);
+        }
 
-        isChanged = true;
+        // isChanged = true;
     }
 
     DynamicJsonDocument toJson()
@@ -942,12 +1032,6 @@ public:
         doc[json_key_server] = this->server.toJson();
         doc[json_key_armed] = armed;
 
-        /*
-                for (byte i = 0; i < MAX_INTERVALS; i = i + 1)
-                {
-                    doc[json_key_interval][i] = this->intervals[i].toJson();
-                }
-        */
         for (byte i = 0; i < MAX_OUTPUTS; i = i + 1)
         {
             doc[json_key_output][i] = this->outputs[i].toJson();
@@ -1000,32 +1084,19 @@ private:
     edwinspire::Interval interval_store;
     ArmedType armed = ArmedType::INSTANT;
     bool isChanged = false;
+    byte led = 255;
 
     void store()
     {
         if (!isChanged)
         {
+
             this->isChanged = device.isChanged || server.isChanged;
-
-            /*
-                        if (!this->isChanged)
-                        {
-
-                            for (byte i = 0; i < MAX_INTERVALS; i = i + 1)
-                            {
-                                if (this->intervals[i].isChanged)
-                                {
-                                    this->isChanged = true;
-                                    break;
-                                }
-                            }
-                        }
-                        */
 
             if (!this->isChanged)
             {
 
-                for (byte i = 0; i < MAX_INPUT; i = i + 1)
+                for (byte i = 0; i < MAX_INPUTS; i = i + 1)
                 {
                     if (this->inputs[i].isChanged)
                     {
@@ -1065,8 +1136,27 @@ private:
         if (this->isChanged)
         {
             //
-            Serial.println("Hubo cambios.... se guardarán... ");
+            Serial.println("Hubo cambios.... se guardar�n... ");
             ocs::LocalStore::save(toJson());
+            this->isChanged = false;
+            this->device.isChanged = false;
+            this->server.isChanged = false;
+
+            for (byte i = 0; i < MAX_INPUTS; i = i + 1)
+            {
+                this->inputs[i].isChanged = false;
+            }
+
+            for (byte i = 0; i < MAX_OUTPUTS; i = i + 1)
+            {
+                this->outputs[i].isChanged = false;
+            }
+
+            for (byte i = 0; i < MAX_SSID; i = i + 1)
+            {
+                this->ssids[i].isChanged = false;
+            }
         }
     }
 };
+ 

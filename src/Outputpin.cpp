@@ -100,7 +100,7 @@ namespace edwinspire
             {
                 times = total_time_ms / timePulse;
                 Serial.print("Veces que se va a ejecutar el pulso: ");
-                Serial.println(times);
+                Serial.println(times * 2);
 
                 if (times <= 0)
                 {
@@ -108,12 +108,12 @@ namespace edwinspire
                 }
             }
 
-            this->blink(lowTime, highTime, 0, times);
+            this->blink(lowTime, highTime, 0, times * 2);
         }
 
         void blink(unsigned long lowTime, unsigned long highTime, unsigned long delayTime, long blinkTimes)
         {
-            // this->low();
+            //this->low();
             this->_highTime = highTime;
             this->_lowTime = lowTime;
             this->_startTime = delayTime;
@@ -146,8 +146,8 @@ namespace edwinspire
         void loop(void)
         {
             // Serial.println("Enabled: " + String(this->enabled));
-            // Serial.println("_blinkState: " + String(this->_blinkState));
-            // Serial.println("_blinkTimes: " + String(this->_blinkTimes));
+            //  Serial.println("_blinkState: " + String(this->_blinkState));
+            //    Serial.println("_blinkTimes: " + String(this->_blinkTimes));
             if (this->enabled)
             {
                 bool isBlink = false;
@@ -160,6 +160,7 @@ namespace edwinspire
                 switch (this->_blinkState)
                 {
                 case BlinkState::DISABLE:
+                    this->low();
                     return;
 
                 case BlinkState::DELAY:
@@ -190,7 +191,9 @@ namespace edwinspire
                     this->_lastBlinkTime = millis();
 
                     if (this->_blinkTimes > 0)
+                    {
                         this->_blinkTimes--;
+                    }
                 }
             }
         }

@@ -7,6 +7,7 @@
 #include <ArduinoWebsockets.h>
 #include "AsyncJson.h"
 #include "Configuration.cpp"
+#include <Base64.h>
 
 #ifdef ESP32
 #include <ESPmDNS.h>
@@ -188,7 +189,7 @@ namespace ocs
                 {
                     if (i == 0)
                     {
-                        // Posición 0 siempre va la el SSID default
+                        // Posici�n 0 siempre va la el SSID default
                         doc[i][json_key_ssid] = ocs::default_wifi.ssid;
                         doc[i][json_key_pwd] = ocs::default_wifi.pwd;
                     }
@@ -222,7 +223,7 @@ namespace ocs
 
                     if (i == 0)
                     {
-                        // Setea en primera posición el wifi default
+                        // Setea en primera posici�n el wifi default
                         this->wifi[i].ssid = ocs::default_wifi.ssid;
                         this->wifi[i].pwd = ocs::default_wifi.pwd;
                     }
@@ -383,6 +384,7 @@ namespace ocs
         void loop()
         {
 
+            this->ConfigParameter.loop();
             interval_ws_status_io.loop();
             interval_check_config_changed.loop();
             interval_ws_connect.loop();
@@ -411,22 +413,6 @@ namespace ocs
 #endif
         }
 
-        /*
-                DynamicJsonDocument setFromJson(DynamicJsonDocument json)
-                {
-
-                    // serializeJsonPretty(json, Serial);
-                    if (json != NULL)
-                    {
-                        // Serial.println(F("Ingresa a setFromJson"));
-                        this->ConfigParameter.fromJson(json);
-                        this->ConfigParameter.saveLocalStorage();
-                    }
-
-                    return this->ConfigParameter.toJson();
-                }
-                */
-
         DynamicJsonDocument toJson()
         {
             // this->ConfigParameter.printMemory();
@@ -441,7 +427,16 @@ namespace ocs
         void begin()
         {
             ocsWebAdmin.start();
-            this->led.blink(700, 800, 100, 5);
+            this->led.blink_by_time(600, 400, 2000);
+        }
+
+        void sendRequest(RequestToServer request_type, const DynamicJsonDocument &data)
+        {
+            DynamicJsonDocument doc(2048);
+            doc[json_key_request] = request_type;
+            doc[json_key_data] = data;
+            this->wsclient.send(HttpWebsocketServer::DynamicJsonToString(doc));
+            doc.clear();
         }
 
         void connect_websocket()
@@ -454,18 +449,98 @@ namespace ocs
                 HttpWebsocketServer::freeMemory();
                 bool connected = this->wsclient.connect(this->ConfigParameter.server.getUrlServer());
 
+                //      Serial.println("Basic " + base64::encode(this->ConfigParameter.server.getUsername() + ":" + this->ConfigParameter.server.getPassword()));
+
                 if (connected)
                 {
                     Serial.println(F("WS Connected"));
-                    this->wsclient.send(F("{\"request\": 1000}"));
-                    this->wsclient.ping();
+                    // Serial.println(this->ConfigParameter.device.getDeviceID());
+
+                    DynamicJsonDocument doc(256);
+                    if (this->ConfigParameter.device.getDeviceID().length() < 10)
+                    {
+                        this->ConfigParameter.device.setDeviceID(default_deviceid);
+                    }
+
+                    doc[json_key_device_id] = this->ConfigParameter.device.getDeviceID();
+
+                    if (default_deviceid != this->ConfigParameter.device.getDeviceID())
+                    {
+                        // doc[json_key_device_id] = this->ConfigParameter.device.getDeviceID();
+                        doc[json_key_name] = this->ConfigParameter.device.getName();
+                        doc[json_key_chip] = this->chip();
+                        doc[json_key_chip_model] = this->chip_model();
+                        doc[json_key_chip_version] = this->chip_version();
+                        doc[json_key_mac_address] = this->mac_address;
+                    }
+                    sendRequest(RequestToServer::REGISTER, doc);
+                    // this->wsclient.send(HttpWebsocketServer::DynamicJsonToString(doc));
+                    // this->wsclient.ping();
+                    //  this->led.blink_by_time(300, 200, 1000);
                 }
                 else
                 {
                     Serial.println(F("WS Not Connected!"));
                     this->wsclient.close();
+                    this->led.blink_by_time(250, 250, 2000);
                 }
             }
+        }
+
+        String chip()
+        {
+
+#ifdef ESP8266
+            return "ESP8266";
+#elif defined(ESP32)
+            return "ESP32";
+#endif
+        }
+
+        String chip_model()
+        {
+#ifdef ESP32
+            return ESP.getChipModel();
+#elif defined(ESP8266)
+            return String(ESP.getChipId(), HEX);
+#endif
+        }
+
+        String chip_version()
+        {
+#ifdef ESP32
+            return ESP.getChipRevision();
+#elif defined(ESP8266)
+            return ESP.getCoreVersion();
+#endif
+        }
+
+        /*
+        #ifdef ESP32
+                doc[F("ChipModel")] = ESP.getChipModel();
+                doc[F("EfuseMac")] = String(ESP.getEfuseMac(), HEX);
+                doc[F("ChipRevision")] = ESP.getChipRevision();
+        #elif defined(ESP8266)
+                doc[F("ChipModel")] = String(ESP.getChipId(), HEX);
+                doc[F("EfuseMac")] = String(ESP.getFlashChipId(), HEX);
+                doc[F("ChipRevision")] = ESP.getCoreVersion();
+        #endif
+        */
+        uint32_t chip_id()
+        {
+#ifdef ESP8266
+            // Para ESP8266
+            Serial.println("Modelo del chip (ESP8266): " + ESP.getChipId());
+            return ESP.getChipId();
+#endif
+
+#ifdef ESP32
+            // Para ESP32
+            esp_chip_info_t chip_info;
+            esp_chip_info(&chip_info);
+            Serial.print("Modelo del chip (ESP32): ");
+            Serial.println((char *)chip_info.model);
+#endif
         }
 
         void reboot()
@@ -491,7 +566,7 @@ namespace ocs
             Serial.println(F("Setup OCS"));
 
             this->ConfigParameter = config;
-            //this->ConfigParameter.setup();
+            // this->ConfigParameter.setup();
 
             ocsWebAdmin.setup();
             ocsWebAdmin.setAdminPwd(this->ConfigParameter.device.getPwdAdm().c_str());
@@ -501,7 +576,7 @@ namespace ocs
 
             this->setUpOutputs();
 
-            this->led.setup(this->ConfigParameter.led, true);
+            this->led.setup(this->ConfigParameter.getLed(), true);
 
             this->setUpWebAdmin();
             this->setUpwebSocket();
@@ -578,6 +653,11 @@ namespace ocs
             return doc;
         }
 
+        void setMACAddress(String mac)
+        {
+            this->mac_address = mac;
+        }
+
     private:
         void alarm(byte position, ocs::input::Status status, ZoneType zone_type)
         {
@@ -596,7 +676,7 @@ namespace ocs
 
                     if (this->outputs[i1].enabled && this->outputs[i1].getGPIO() == this->ConfigParameter.inputs[position].getOuts()[i].getGpio())
                     {
-                        // Aqui ejecutar la acción sobre la salida
+                        // Aqui ejecutar la acci�n sobre la salida
                         switch (zone_type)
                         {
                         case ZoneType::BUTTON:
@@ -639,7 +719,7 @@ namespace ocs
         void onChangeStatusInput(byte position, ocs::input::Status status)
         {
 
-            // Verifica el tipo de zona para procesar según el caso
+            // Verifica el tipo de zona para procesar seg�n el caso
             switch (this->ConfigParameter.inputs[position].getZoneType())
             {
             case ZoneType::ALWAYS:
@@ -652,11 +732,11 @@ namespace ocs
                 break;
 
             case ZoneType::DELAY:
-                // Verifica si el sistema esta armado y si se terminó el tiempo de retardo para emitir una señal
+                // Verifica si el sistema esta armado y si se termin� el tiempo de retardo para emitir una se�al
                 break;
 
             case ZoneType::INTERIOR:
-                // Verifica el tipo de armado del sistema para emitir una señal
+                // Verifica el tipo de armado del sistema para emitir una se�al
 
                 if (this->ConfigParameter.getArmed() == ArmedType::INSTANT || this->ConfigParameter.getArmed() == ArmedType::WITH_DELAY)
                 {
@@ -666,7 +746,7 @@ namespace ocs
                 break;
 
             case ZoneType::NORMAL:
-                // Verifica si el sistema está armado para emitir una señal de alarma
+                // Verifica si el sistema est� armado para emitir una se�al de alarma
                 if (this->ConfigParameter.getArmed() != ArmedType::DISARMED)
                 {
                     this->alarm(position, status, ZoneType::NORMAL);
@@ -674,12 +754,12 @@ namespace ocs
                 break;
 
             case ZoneType::BUTTON:
-                // Independiente si el sistema está armado o no, comanda una o varias salidas
+                // Independiente si el sistema est� armado o no, comanda una o varias salidas
                 linkedOutputsAction(position, status, ZoneType::BUTTON);
                 break;
 
             case ZoneType::TOGGLE:
-                // Independiente si el sistema está armado o no, comanda una o varias salidas
+                // Independiente si el sistema est� armado o no, comanda una o varias salidas
                 linkedOutputsAction(position, status, ZoneType::TOGGLE);
                 break;
 
@@ -696,7 +776,7 @@ namespace ocs
 
             if (ocsWebAdmin.checkPassword(isAdmin, old_pwd))
             {
-                // Serial.println('Clave válida');
+                // Serial.println('Clave v�lida');
                 if (isAdmin)
                 {
                     this->ConfigParameter.device.setPwdAdm(new_pwd);
@@ -716,6 +796,7 @@ namespace ocs
             return r;
         }
 
+        String mac_address = "";
         WebsocketsClient wsclient;
         bool existsConfigChanged = false;
         edwinspire::OutputPin outputs[MAX_OUTPUTS];
@@ -929,12 +1010,15 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
             ocsWebAdmin.on("/device/isalive", HTTP_GET, [&](AsyncWebServerRequest *request)
                            {
                             DynamicJsonDocument doc(16);
-                            doc[F("isalavive")] = true; 
+                            doc[json_key_isalavive] = true; 
                             request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(doc)); });
         }
 
         void setUpwebSocket()
         {
+            // Para cambiar este p�r�metro es necesario reiniciar el dispositivo
+            wsclient.addHeader("Authorization", "Basic " + base64::encode(this->ConfigParameter.server.getUsername() + ":" + this->ConfigParameter.server.getPassword()));
+
             if (this->ConfigParameter.server.getSecure())
             {
 
@@ -963,11 +1047,11 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
                                          else
                                          {
 
-                                             if (!doc["command"].isNull())
+                                             if (!doc[json_key_command].isNull())
                                              {
                                                  this->onwsCommand(doc);
                                              }
-                                             else if (!doc["request"].isNull())
+                                             else if (!doc[json_key_request].isNull())
                                              {
                                                  this->onwsRequest(doc);
                                              }
@@ -1031,33 +1115,60 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
 
         void onwsCommand(DynamicJsonDocument doc)
         {
-            unsigned int command = doc[F("command")];
 
-            switch (command)
+            switch (doc[json_key_command].as<CommandFromServer>())
             {
-            case 1: // Set Alarm
+            case CommandFromServer::OCS_ALARM: // Set Alarm
             {
                 Serial.println(F("SET ALARM..."));
                 // Serial.println(doc["siren_type"].as<const char *>());
                 // ocs::input::SirenType siren_type = doc[F("siren_type")];
                 // this->setAlarm(siren_type);
+
+                unsigned long lowtime = doc[json_key_data][json_key_low_time].as<unsigned long>();
+                unsigned long hightime = doc[json_key_data][json_key_high_time].as<unsigned long>();
+                unsigned long totaltime = doc[json_key_data][json_key_total_time].as<unsigned long>();
+
+                for (byte i = 0; i < MAX_OUTPUTS; i = i + 1)
+                {
+                  //  Serial.println(F("Blink out") + String(i));
+
+                    if (this->ConfigParameter.outputs[i].getEnabled() && this->ConfigParameter.outputs[i].getGpio() != 255 && this->ConfigParameter.outputs[i].getName() == json_key_ocs)
+                    {
+                        if (totaltime > 0)
+                        {
+                            this->outputs[i].blink_by_time(lowtime, hightime, totaltime);
+                            Serial.println(F("Blink out"));
+                        }else{
+                            
+                            this->outputs[i].low();
+                            Serial.println(F("Off out"));
+                        }
+                    }
+                }
             }
             break;
-            case 1000: // Set deviceId
+            case CommandFromServer::NEW_DEVICE_ID: // Set deviceId
                 this->ConfigParameter.device.setDeviceID(doc[json_key_device_id].as<String>());
                 Serial.println(F("seteada UUID"));
+                // Cierra la conexi�n al websocket para que se vuelva a conectar con la nueva ID
+                this->wsclient.close();
+                this->wsclient.end();
                 // this->ConfigParameter.saveLocalStorage();
+                break;
+            default:
+                Serial.println("Comando desconocido: " + doc[json_key_command].as<String>());
                 break;
             }
         }
 
         void onwsRequest(DynamicJsonDocument doc)
         {
-            unsigned int command = doc[F("request")];
+            unsigned int req = doc[json_key_request];
 
-            switch (command)
+            switch (req)
             {
-            case 1000: // Requiere datos de configuración
+            case 1000: // Requiere datos de configuraci�n
             {
                 Serial.println(F("Response configuration ..."));
                 DynamicJsonDocument doc(JSON_MAX_SIZE);
@@ -1079,4 +1190,4 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
             }
         }
     };
-}
+} 
