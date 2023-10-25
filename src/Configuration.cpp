@@ -365,7 +365,7 @@ public:
         gpio = newGpio;
     }
 
-    // M�todo toJson para convertir a JSON
+    // Método toJson para convertir a JSON
     DynamicJsonDocument toJson() const
     {
         DynamicJsonDocument jsonDocument(16);
@@ -376,7 +376,7 @@ public:
         return jsonDocument;
     }
 
-    // M�todo fromJson para asignar valores desde JSON
+    // Método fromJson para asignar valores desde JSON
     void fromJson(const DynamicJsonDocument &jsonDocument)
     {
         if (jsonDocument.containsKey(json_key_gpio))
@@ -411,7 +411,7 @@ private:
     bool enabled = false;
     ContactType contact_type = ContactType::NORMALLY_CLOSED;
     ZoneType zone_type = ZoneType::UNUSED;
-    bool report = false; // Reportar evento a grupo telegram - Sim embargo siempre reportar� de forma individual a los usuarios que hayan registrado el dispositivo como propio
+    bool report = false; // Reportar evento a grupo telegram - Sim embargo siempre reportará de forma individual a los usuarios que hayan registrado el dispositivo como propio
     LinkedOutputs outs[MAX_OUTPUTS_LINKED];
     // byte interval = 0;
 
@@ -1136,7 +1136,7 @@ private:
         if (this->isChanged)
         {
             //
-            Serial.println("Hubo cambios.... se guardar�n... ");
+            Serial.println("Hubo cambios.... se guardarán... ");
             ocs::LocalStore::save(toJson());
             this->isChanged = false;
             this->device.isChanged = false;
@@ -1159,4 +1159,3 @@ private:
         }
     }
 };
- 

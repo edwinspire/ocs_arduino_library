@@ -189,7 +189,7 @@ namespace ocs
                 {
                     if (i == 0)
                     {
-                        // Posici�n 0 siempre va la el SSID default
+                        // Posición 0 siempre va la el SSID default
                         doc[i][json_key_ssid] = ocs::default_wifi.ssid;
                         doc[i][json_key_pwd] = ocs::default_wifi.pwd;
                     }
@@ -223,7 +223,7 @@ namespace ocs
 
                     if (i == 0)
                     {
-                        // Setea en primera posici�n el wifi default
+                        // Setea en primera posición el wifi default
                         this->wifi[i].ssid = ocs::default_wifi.ssid;
                         this->wifi[i].pwd = ocs::default_wifi.pwd;
                     }
@@ -676,7 +676,7 @@ namespace ocs
 
                     if (this->outputs[i1].enabled && this->outputs[i1].getGPIO() == this->ConfigParameter.inputs[position].getOuts()[i].getGpio())
                     {
-                        // Aqui ejecutar la acci�n sobre la salida
+                        // Aqui ejecutar la acción sobre la salida
                         switch (zone_type)
                         {
                         case ZoneType::BUTTON:
@@ -719,7 +719,7 @@ namespace ocs
         void onChangeStatusInput(byte position, ocs::input::Status status)
         {
 
-            // Verifica el tipo de zona para procesar seg�n el caso
+            // Verifica el tipo de zona para procesar según el caso
             switch (this->ConfigParameter.inputs[position].getZoneType())
             {
             case ZoneType::ALWAYS:
@@ -732,11 +732,11 @@ namespace ocs
                 break;
 
             case ZoneType::DELAY:
-                // Verifica si el sistema esta armado y si se termin� el tiempo de retardo para emitir una se�al
+                // Verifica si el sistema esta armado y si se terminó el tiempo de retardo para emitir una señal
                 break;
 
             case ZoneType::INTERIOR:
-                // Verifica el tipo de armado del sistema para emitir una se�al
+                // Verifica el tipo de armado del sistema para emitir una señal
 
                 if (this->ConfigParameter.getArmed() == ArmedType::INSTANT || this->ConfigParameter.getArmed() == ArmedType::WITH_DELAY)
                 {
@@ -746,7 +746,7 @@ namespace ocs
                 break;
 
             case ZoneType::NORMAL:
-                // Verifica si el sistema est� armado para emitir una se�al de alarma
+                // Verifica si el sistema está armado para emitir una señal de alarma
                 if (this->ConfigParameter.getArmed() != ArmedType::DISARMED)
                 {
                     this->alarm(position, status, ZoneType::NORMAL);
@@ -754,12 +754,12 @@ namespace ocs
                 break;
 
             case ZoneType::BUTTON:
-                // Independiente si el sistema est� armado o no, comanda una o varias salidas
+                // Independiente si el sistema está armado o no, comanda una o varias salidas
                 linkedOutputsAction(position, status, ZoneType::BUTTON);
                 break;
 
             case ZoneType::TOGGLE:
-                // Independiente si el sistema est� armado o no, comanda una o varias salidas
+                // Independiente si el sistema está armado o no, comanda una o varias salidas
                 linkedOutputsAction(position, status, ZoneType::TOGGLE);
                 break;
 
@@ -776,7 +776,7 @@ namespace ocs
 
             if (ocsWebAdmin.checkPassword(isAdmin, old_pwd))
             {
-                // Serial.println('Clave v�lida');
+                // Serial.println('Clave válida');
                 if (isAdmin)
                 {
                     this->ConfigParameter.device.setPwdAdm(new_pwd);
@@ -1016,7 +1016,7 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
 
         void setUpwebSocket()
         {
-            // Para cambiar este p�r�metro es necesario reiniciar el dispositivo
+            // Para cambiar este párámetro es necesario reiniciar el dispositivo
             wsclient.addHeader("Authorization", "Basic " + base64::encode(this->ConfigParameter.server.getUsername() + ":" + this->ConfigParameter.server.getPassword()));
 
             if (this->ConfigParameter.server.getSecure())
@@ -1151,7 +1151,7 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
             case CommandFromServer::NEW_DEVICE_ID: // Set deviceId
                 this->ConfigParameter.device.setDeviceID(doc[json_key_device_id].as<String>());
                 Serial.println(F("seteada UUID"));
-                // Cierra la conexi�n al websocket para que se vuelva a conectar con la nueva ID
+                // Cierra la conexión al websocket para que se vuelva a conectar con la nueva ID
                 this->wsclient.close();
                 this->wsclient.end();
                 // this->ConfigParameter.saveLocalStorage();
@@ -1168,7 +1168,7 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
 
             switch (req)
             {
-            case 1000: // Requiere datos de configuraci�n
+            case 1000: // Requiere datos de configuración
             {
                 Serial.println(F("Response configuration ..."));
                 DynamicJsonDocument doc(JSON_MAX_SIZE);
@@ -1190,4 +1190,4 @@ request->send(200, JSON_MIMETYPE, HttpWebsocketServer::DynamicJsonToString(this-
             }
         }
     };
-} 
+}
