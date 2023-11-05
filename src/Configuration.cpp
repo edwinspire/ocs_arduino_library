@@ -25,7 +25,16 @@ MAX_OUTPUTS = 1
     MAX_INPUTS = 1
 #endif
 
-    const char default_ssid_name[12] = "accesspoint";
+#ifndef MAX_SSID_WIFI
+    MAX_SSID_WIFI = 4
+#endif
+
+    //  const byte MAX_SSID_WIFI = 4;
+
+    const char default_websocketHost[] = "open-community-safety.herokuapp.com/ws/device";
+const char default_deviceid[] = "00a0aa00-aa00-0000-0000-000000000000";
+
+const char default_ssid_name[12] = "accesspoint";
 const char default_ssid_password[13] = "123456@qwert";
 
 const char json_key_name[5] = "name";
@@ -80,14 +89,13 @@ const char json_key_low_time[8] = "lowtime";
 const char json_key_high_time[9] = "hightime";
 const char json_key_total_time[10] = "totaltime";
 const char json_key_command[4] = "cmd";
-const char json_key_request[4] = "req";
+//const char json_key_request[4] = "req";
 const char json_key_isalavive[10] = "isalavive";
 const char json_key_chip[5] = "chip";
 const char json_key_chip_model[11] = "chip_model";
 const char json_key_chip_version[13] = "chip_version";
 const char json_key_mac_address[4] = "mac";
 const char json_key_ocs[4] = "ocs";
-
 
 bool checkChangeValueString(String oldValue, String newValue, bool currentIsChanged)
 {
@@ -266,18 +274,24 @@ public:
     }
 };
 
-enum RequestToServer : byte
+
+enum CommunicationCommand : byte
 {
-    REGISTER = 1 //Register on the server
+    REGISTER_DEVICE = 1,
+    SET_DEVICE_ID = 2, // Register on the server
+    ALARM = 3,
+    SETTING = 4,
+    GET_SETTINGS = 5,
+    SET_SETTINGS = 6,
+    STATUS_DEVICE = 7,
+    GET_STATUS_DEVICE = 8,
+    ERROR = 9,
+    RESTORE_DEFAULT_VALUES = 10,
+    DISCONNET = 11,
+    RESET_DEVICE = 12,
+    REGISTER_DEVICE_SUCCESS = 13,
+    REGISTER_DEVICE_ERROR = 14
 };
-
-
-enum CommandFromServer : byte
-{
-    NEW_DEVICE_ID = 1, //Register on the server
-    OCS_ALARM = 2
-};
-
 
 // Contact Type Enum 1: Normal Open, 2: Normal Close, 0: No used,
 enum ContactType : uint8_t
@@ -851,12 +865,12 @@ public:
         if (this->is_secure)
         {
             return "wss://" + this->server;
-            //return "wss://" + username + ":" + password + "@" + this->server;
+            // return "wss://" + username + ":" + password + "@" + this->server;
         }
         else
         {
-             return "ws://" + this->server;
-           // return "ws://" + username + ":" + password + "@" + this->server;
+            return "ws://" + this->server;
+            // return "ws://" + username + ":" + password + "@" + this->server;
         }
     }
 
