@@ -61,7 +61,7 @@
     },
     {
       "name": "Base64",
-      "platforms": "*"
+      "platforms": "arduino"
     },
     {
       "name": "EEPROM",
