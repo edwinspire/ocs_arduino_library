@@ -60,10 +60,6 @@
       "platforms": ["espressif8266", "espressif32"]
     },
     {
-      "name": "Base64",
-      "platforms": "arduino"
-    },
-    {
       "name": "EEPROM",
       "platforms": "*"
     }

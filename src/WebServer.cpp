@@ -147,8 +147,8 @@ namespace ocs
         {
 
 #if defined(ESP8266)
-        //    Serial.printf("getHeapFragmentation %d\n", ESP.getHeapFragmentation());
-          //  Serial.printf("getFreeHeap %d\n", ESP.getFreeHeap());
+            //    Serial.printf("getHeapFragmentation %d\n", ESP.getHeapFragmentation());
+            //  Serial.printf("getFreeHeap %d\n", ESP.getFreeHeap());
             ESP.resetHeap();
 #endif
         }

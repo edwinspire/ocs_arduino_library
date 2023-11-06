@@ -7,7 +7,6 @@
 #include <ArduinoWebsockets.h>
 #include "AsyncJson.h"
 #include "Configuration.cpp"
-#include <Base64.h>
 
 using namespace websockets;
 
@@ -277,7 +276,36 @@ this->led.blink_by_time(250, 750, 2000); });
 
         String getBasicAuthorizationString()
         {
-            return "Basic " + base64::encode(this->ConfigParameter.server.getUsername() + ":" + this->ConfigParameter.server.getPassword());
+            return "Basic " + base64Encode(this->ConfigParameter.server.getUsername() + ":" + this->ConfigParameter.server.getPassword());
+        }
+
+        static String base64Encode(String text)
+        {
+            const char base64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+            String encoded = "";
+            int val = 0, valb = -6;
+            for (char c : text)
+            {
+                val = (val << 8) + c;
+                valb += 8;
+                while (valb >= 0)
+                {
+                    encoded += base64chars[(val >> valb) & 0x3F];
+                    valb -= 6;
+                }
+            }
+
+            if (valb > -6)
+            {
+                encoded += base64chars[((val << 8) >> (valb + 8)) & 0x3F];
+            }
+            while (encoded.length() % 4)
+            {
+                encoded += '=';
+            }
+
+            return encoded;
         }
 
         DynamicJsonDocument statusInputs()
