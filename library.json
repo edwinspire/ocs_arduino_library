@@ -60,8 +60,7 @@
       "platforms": ["espressif8266", "espressif32"]
     },
     {
-      "owner": "densaugeo",
-      "name": "base64",
+      "name": "Base64",
       "platforms": "*"
     },
     {
